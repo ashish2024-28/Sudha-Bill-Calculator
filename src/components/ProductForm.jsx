@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, X, Edit3, Tag, DollarSign, Hash, Percent } from 'lucide-react'
+import { Plus, X, Edit3, Tag, Hash, IndianRupee } from 'lucide-react'
 import { validateProduct, calculateProductTotals, formatCurrency } from '../utils/calculations'
 
 const EMPTY_FORM = { name: '', price: '', quantity: '1', discount: '0' }
@@ -116,7 +116,7 @@ const ProductForm = ({ editingProduct, onAdd, onUpdate, onCancelEdit }) => {
         {/* Price */}
         <div>
           <label className="label">
-            <DollarSign size={12} className="inline mr-1" />
+            <IndianRupee size={12} className="inline mr-1" />
             Price (₹)
           </label>
           <input
@@ -154,18 +154,18 @@ const ProductForm = ({ editingProduct, onAdd, onUpdate, onCancelEdit }) => {
         </div>
 
         {/* Discount */}
+        {/* Discount in Rupees */}
         <div>
           <label className="label">
-            <Percent size={12} className="inline mr-1" />
-            Discount %
+            <span className="inline mr-1 font-bold text-xs">₹</span>
+            Discount (₹)
           </label>
           <input
             type="number"
             min="0"
-            max="100"
-            step="0.5"
+            step="0.50"
             className={`input-field font-mono ${errors.discount && touched.discount ? 'border-red-400 focus:ring-red-400' : ''}`}
-            placeholder="0"
+            placeholder="0.00"
             value={form.discount}
             onChange={e => handleChange('discount', e.target.value)}
           />
@@ -187,7 +187,7 @@ const ProductForm = ({ editingProduct, onAdd, onUpdate, onCancelEdit }) => {
                 <p className="font-mono font-semibold text-sm text-red-500">-{formatCurrency(preview.discountAmount)}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Final</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Final </p>
                 <p className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400">{formatCurrency(preview.finalTotal)}</p>
               </div>
             </div>

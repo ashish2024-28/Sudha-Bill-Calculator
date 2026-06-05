@@ -15,6 +15,7 @@ import { useToast } from './hooks/useToast'
 function App() {
   const { darkMode, toggleDarkMode } = useTheme()
   const { toasts, addToast, removeToast } = useToast()
+  const [activeTab, setActiveTab] = useState('patandairy')
 
   const {
     products,
@@ -33,10 +34,16 @@ function App() {
     deleteProduct,
     clearAll,
     importProducts
-  } = useProducts()
+  } = useProducts(activeTab)
 
   const [editingProduct, setEditingProduct] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState({ open: false, type: null, productId: null })
+
+  // Clear editing when switching tabs
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    setEditingProduct(null)
+  }
 
   const handleAddProduct = useCallback((formData) => {
     addProduct(formData)
@@ -106,6 +113,27 @@ function App() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        {/* Tabs */}
+        <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-full sm:w-fit">
+          {[
+            { key: 'patandairy', label: '🐄 Patan Dairy' },
+            { key: 'arradairy', label: '🥛 Arra Dairy' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xl font-semibold font-display transition-all duration-200
+                ${activeTab === tab.key
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* Summary Cards */}
         <SummaryCards summary={summary} productCount={products.length} />
 
@@ -153,7 +181,6 @@ function App() {
         </footer>
       </main>
 
-      {/* Dialogs & Notifications */}
       <ConfirmDialog
         isOpen={confirmDialog.open}
         title={confirmDialog.title}

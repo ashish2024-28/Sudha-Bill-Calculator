@@ -3,21 +3,21 @@ export const calculateItemTotal = (price, quantity) => {
   return parseFloat(price) * parseInt(quantity)
 }
 
-export const calculateDiscountAmount = (itemTotal, discountPercent) => {
-  return (itemTotal * parseFloat(discountPercent)) / 100
+export const calculateDiscountAmount = (discountRupees) => {
+  return parseFloat(discountRupees) || 0
 }
 
 export const calculateFinalTotal = (itemTotal, discountAmount) => {
-  return itemTotal - discountAmount
+  return Math.max(0, itemTotal - discountAmount)
 }
 
 export const calculateProductTotals = (product) => {
   const price = parseFloat(product.price) || 0
   const quantity = parseInt(product.quantity) || 0
-  const discountPercent = parseFloat(product.discount) || 0
+  const discountRupees = parseFloat(product.discount) || 0
 
   const itemTotal = calculateItemTotal(price, quantity)
-  const discountAmount = calculateDiscountAmount(itemTotal, discountPercent)
+  const discountAmount = calculateDiscountAmount(discountRupees)
   const finalTotal = calculateFinalTotal(itemTotal, discountAmount)
 
   return { itemTotal, discountAmount, finalTotal }
@@ -67,8 +67,11 @@ export const validateProduct = (product) => {
 
   if (product.discount !== undefined && product.discount !== '') {
     const disc = parseFloat(product.discount)
-    if (isNaN(disc) || disc < 0 || disc > 100) {
-      errors.discount = 'Discount must be between 0 and 100'
+    const itemTotal = (parseFloat(product.price) || 0) * (parseInt(product.quantity) || 0)
+    if (isNaN(disc) || disc < 0) {
+      errors.discount = 'Discount cannot be negative'
+    } else if (disc > itemTotal && itemTotal > 0) {
+      errors.discount = 'Discount cannot exceed item total'
     }
   }
 

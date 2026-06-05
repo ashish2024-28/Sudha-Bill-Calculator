@@ -29,14 +29,14 @@ const Header = ({ summary, darkMode, onToggleDarkMode }) => {
             <div className="hidden sm:flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-xl px-3 py-2">
               <ShoppingCart size={14} className="text-blue-600 dark:text-blue-400" />
               <span className="text-xs font-semibold font-display text-blue-700 dark:text-blue-300">
-                {summary.totalItems} items
+               <span className='text-xl'> {summary.totalItems} </span> items
               </span>
             </div>
 
             {/* Grand Total */}
             <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-xl px-3 py-2">
               <DollarSign size={14} className="text-emerald-600 dark:text-emerald-400" />
-              <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-300 max-w-[90px] sm:max-w-none truncate block">                {formatCurrency(summary.grandTotal)}
+              <span className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-300 max-w-[90px] sm:max-w-none truncate block">                {formatCurrency(summary.grandTotal)}
               </span>
             </div>
 

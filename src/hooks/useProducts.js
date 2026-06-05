@@ -2,24 +2,30 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { storageService } from '../services/storageService'
 import { generateId, calculateSummary, sortProducts } from '../utils/calculations'
 
-export const useProducts = () => {
+const STORAGE_KEYS = {
+  patandairy: 'sudha_bill_patandairy_products',
+  arradairy: 'sudha_bill_arradairy_products',
+}
+
+export const useProducts = (tab = 'patandairy') => {
+  const storageKey = STORAGE_KEYS[tab] || STORAGE_KEYS.patandairy
+
   const [products, setProducts] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState('asc')
-  const [filterDiscount, setFilterDiscount] = useState('all') // 'all' | 'has-discount' | 'no-discount'
+  const [filterDiscount, setFilterDiscount] = useState('all')
 
-  // Load from localStorage on mount
+  // Reload when tab changes
   useEffect(() => {
-    const saved = storageService.getProducts()
+    const saved = storageService.getProducts(storageKey)
     setProducts(saved)
-  }, [])
+  }, [storageKey])
 
-  // Auto-save whenever products change
   const saveProducts = useCallback((updatedProducts) => {
     setProducts(updatedProducts)
-    storageService.saveProducts(updatedProducts)
-  }, [])
+    storageService.saveProducts(updatedProducts, storageKey)
+  }, [storageKey])
 
   const addProduct = useCallback((productData) => {
     const newProduct = {
@@ -30,34 +36,45 @@ export const useProducts = () => {
       discount: parseFloat(productData.discount) || 0,
       createdAt: new Date().toISOString()
     }
-    saveProducts([...products, newProduct])
+    setProducts(prev => {
+      const updated = [...prev, newProduct]
+      storageService.saveProducts(updated, storageKey)
+      return updated
+    })
     return newProduct
-  }, [products, saveProducts])
+  }, [storageKey])
 
   const updateProduct = useCallback((id, productData) => {
-    const updated = products.map(p =>
-      p.id === id
-        ? {
-            ...p,
-            name: productData.name.trim(),
-            price: parseFloat(productData.price),
-            quantity: parseInt(productData.quantity),
-            discount: parseFloat(productData.discount) || 0,
-            updatedAt: new Date().toISOString()
-          }
-        : p
-    )
-    saveProducts(updated)
-  }, [products, saveProducts])
+    setProducts(prev => {
+      const updated = prev.map(p =>
+        p.id === id
+          ? {
+              ...p,
+              name: productData.name.trim(),
+              price: parseFloat(productData.price),
+              quantity: parseInt(productData.quantity),
+              discount: parseFloat(productData.discount) || 0,
+              updatedAt: new Date().toISOString()
+            }
+          : p
+      )
+      storageService.saveProducts(updated, storageKey)
+      return updated
+    })
+  }, [storageKey])
 
   const deleteProduct = useCallback((id) => {
-    saveProducts(products.filter(p => p.id !== id))
-  }, [products, saveProducts])
+    setProducts(prev => {
+      const updated = prev.filter(p => p.id !== id)
+      storageService.saveProducts(updated, storageKey)
+      return updated
+    })
+  }, [storageKey])
 
   const clearAll = useCallback(() => {
-    saveProducts([])
-    storageService.clearProducts()
-  }, [saveProducts])
+    setProducts([])
+    storageService.clearProducts(storageKey)
+  }, [storageKey])
 
   const importProducts = useCallback((imported) => {
     const normalized = imported.map(p => ({
@@ -68,10 +85,10 @@ export const useProducts = () => {
       discount: parseFloat(p.discount) || 0,
       createdAt: p.createdAt || new Date().toISOString()
     }))
-    saveProducts(normalized)
-  }, [saveProducts])
+    setProducts(normalized)
+    storageService.saveProducts(normalized, storageKey)
+  }, [storageKey])
 
-  // Derived: filtered + sorted products
   const displayProducts = useMemo(() => {
     let filtered = products
 

@@ -1,11 +1,9 @@
-const STORAGE_KEY = 'sudha_bill_calculator_products'
 const SETTINGS_KEY = 'sudha_bill_calculator_settings'
 
 export const storageService = {
-  // Products
-  getProducts() {
+  getProducts(key = 'sudha_bill_patandairy_products') {
     try {
-      const data = localStorage.getItem(STORAGE_KEY)
+      const data = localStorage.getItem(key)
       return data ? JSON.parse(data) : []
     } catch (error) {
       console.error('Failed to load products:', error)
@@ -13,9 +11,9 @@ export const storageService = {
     }
   },
 
-  saveProducts(products) {
+  saveProducts(products, key = 'sudha_bill_patandairy_products') {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(products))
+      localStorage.setItem(key, JSON.stringify(products))
       return true
     } catch (error) {
       console.error('Failed to save products:', error)
@@ -23,9 +21,9 @@ export const storageService = {
     }
   },
 
-  clearProducts() {
+  clearProducts(key = 'sudha_bill_patandairy_products') {
     try {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(key)
       return true
     } catch (error) {
       console.error('Failed to clear products:', error)
@@ -33,7 +31,6 @@ export const storageService = {
     }
   },
 
-  // Settings
   getSettings() {
     try {
       const data = localStorage.getItem(SETTINGS_KEY)
@@ -53,7 +50,6 @@ export const storageService = {
     }
   },
 
-  // Export / Import
   exportToJSON(products) {
     const data = {
       exportedAt: new Date().toISOString(),
