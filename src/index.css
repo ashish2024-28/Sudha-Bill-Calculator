@@ -162,3 +162,55 @@
 button, a, input, select, textarea {
   transition-duration: 200ms;
 }
+
+
+/* ===== RESPONSIVE FIXES ===== */
+
+/* Fluid font scaling */
+html {
+  font-size: clamp(13px, 1.5vw, 16px);
+}
+
+/* Prevent horizontal overflow on all screens */
+body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Fix inputs zooming on iOS (must be 16px+) */
+input, select, textarea {
+  font-size: max(16px, 1rem) !important;
+}
+
+/* Extra small phones (< 360px) */
+@media (max-width: 360px) {
+  .card { @apply rounded-xl p-3; }
+  .btn-primary, .btn-secondary, .btn-success { @apply px-3 py-2 text-sm; }
+  .stat-card { @apply p-3; }
+}
+
+/* Small phones (360px - 480px) */
+@media (max-width: 480px) {
+  .input-field { @apply py-2.5 text-sm; }
+}
+
+/* Tablets (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .max-w-7xl { max-width: 100%; }
+}
+
+/* Large screens (1440px+) */
+@media (min-width: 1440px) {
+  .max-w-7xl { max-width: 1320px; }
+}
+
+/* Ultra-wide (2560px+) */
+@media (min-width: 2560px) {
+  .max-w-7xl { max-width: 1600px; }
+}
+
+/* Landscape mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  header { @apply h-12; }
+  main { @apply py-3; }
+}

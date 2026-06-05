@@ -43,19 +43,17 @@ const SearchBar = ({
         </div>
 
         {/* Sort */}
-        <div className="flex gap-2">
-          <div className="relative">
-            <select
-              className="input-field pr-8 appearance-none cursor-pointer text-sm"
-              value={sortBy}
-              onChange={e => onSortChange(e.target.value)}
-              style={{ minWidth: '120px' }}
-            >
-              {SORT_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">          <div className="relative">
+          <select
+            className="input-field pr-8 appearance-none cursor-pointer text-sm"
+            value={sortBy}
+            onChange={e => onSortChange(e.target.value)}
+            style={{ minWidth: '100px', maxWidth: '140px' }}            >
+            {SORT_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
 
           <button
             onClick={onSortOrderToggle}
@@ -75,8 +73,7 @@ const SearchBar = ({
               className="input-field pl-7 appearance-none cursor-pointer text-sm"
               value={filterDiscount}
               onChange={e => onFilterChange(e.target.value)}
-              style={{ minWidth: '130px' }}
-            >
+              style={{ minWidth: '110px', maxWidth: '150px' }}            >
               <option value="all">All Products</option>
               <option value="has-discount">Has Discount</option>
               <option value="no-discount">No Discount</option>

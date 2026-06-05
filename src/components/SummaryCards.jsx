@@ -2,15 +2,14 @@ import React from 'react'
 import { TrendingDown, ShoppingBag, Receipt, Banknote, Package } from 'lucide-react'
 import { formatCurrency } from '../utils/calculations'
 
-const StatCard = ({ icon: Icon, label, value, subValue, colorClass, bgClass, borderClass }) => (
-  <div className={`stat-card flex items-start gap-4 group cursor-default`}>
+const StatCard = ({ icon: Icon, label, value, subValue, colorClass, bgClass }) => (
+  <div className={`stat-card flex items-start gap-3 sm:gap-4 group cursor-default`}>
     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${bgClass} flex-shrink-0 group-hover:scale-110 transition-transform duration-200`}>
       <Icon size={22} className={colorClass} />
     </div>
     <div className="min-w-0">
       <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{label}</p>
-      <p className={`font-mono font-bold text-xl text-slate-800 dark:text-slate-100 leading-tight truncate`}>{value}</p>
-      {subValue && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{subValue}</p>}
+      <p className={`font-mono font-bold text-base sm:text-xl text-slate-800 dark:text-slate-100 leading-tight truncate`}>{value}</p>      {subValue && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{subValue}</p>}
     </div>
   </div>
 )
@@ -21,7 +20,7 @@ const SummaryCards = ({ summary, productCount }) => {
     : '0.0'
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       <StatCard
         icon={Receipt}
         label="Subtotal"

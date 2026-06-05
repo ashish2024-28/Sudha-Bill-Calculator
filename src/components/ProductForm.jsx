@@ -24,10 +24,10 @@ const ProductForm = ({ editingProduct, onAdd, onUpdate, onCancelEdit }) => {
 
   const preview = form.price && form.quantity
     ? calculateProductTotals({
-        price: form.price,
-        quantity: form.quantity,
-        discount: form.discount
-      })
+      price: form.price,
+      quantity: form.quantity,
+      discount: form.discount
+    })
     : null
 
   const handleChange = (field, value) => {
@@ -94,8 +94,7 @@ const ProductForm = ({ editingProduct, onAdd, onUpdate, onCancelEdit }) => {
       </div>
 
       {/* Fields Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        {/* Product Name */}
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4 mb-4">        {/* Product Name */}
         <div className="sm:col-span-2">
           <label className="label">
             <Tag size={12} className="inline mr-1" />
@@ -177,8 +176,7 @@ const ProductForm = ({ editingProduct, onAdd, onUpdate, onCancelEdit }) => {
 
         {/* Live Preview */}
         {preview && (
-          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3">
-            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2 font-display uppercase tracking-wide">Preview</p>
+          <div className="min-[400px]:col-span-2 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3">            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2 font-display uppercase tracking-wide">Preview</p>
             <div className="flex items-center justify-between">
               <div className="text-center">
                 <p className="text-xs text-slate-500 dark:text-slate-400">Item Total</p>

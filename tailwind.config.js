@@ -59,7 +59,10 @@ export default {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         }
-      }
+      },
+      screens: {
+        'xs': '400px',
+      },
     },
   },
   plugins: [],

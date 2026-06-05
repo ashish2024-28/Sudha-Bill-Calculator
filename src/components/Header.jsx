@@ -14,7 +14,7 @@ const Header = ({ summary, darkMode, onToggleDarkMode }) => {
               <Calculator size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-xl sm:text-2xl text-slate-900 dark:text-white leading-none">
+              <h1 className="font-display font-bold text-lg sm:text-2xl text-slate-900 dark:text-white leading-none">
                 Sudha Bill
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-body leading-none mt-0.5 hidden sm:block">
@@ -36,8 +36,7 @@ const Header = ({ summary, darkMode, onToggleDarkMode }) => {
             {/* Grand Total */}
             <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-xl px-3 py-2">
               <DollarSign size={14} className="text-emerald-600 dark:text-emerald-400" />
-              <span className="text-xs sm:text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">
-                {formatCurrency(summary.grandTotal)}
+              <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-300 max-w-[90px] sm:max-w-none truncate block">                {formatCurrency(summary.grandTotal)}
               </span>
             </div>
 
