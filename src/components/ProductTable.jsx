@@ -1,6 +1,6 @@
 import React from 'react'
 import { Edit2, Trash2, Package, ChevronRight } from 'lucide-react'
-import { calculateProductTotals, formatCurrency, formatPercent } from '../utils/calculations'
+import { calculateProductTotals, formatCurrency} from '../utils/calculations'
 
 const EmptyState = () => (
   <div className="text-center py-16 px-4">
@@ -26,7 +26,7 @@ const ProductRow = ({ product, onEdit, onDelete }) => {
         </span>
         {hasDiscount && (
           <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            {formatPercent(product.discount)} off
+            ₹{product.discount} off
           </span>
         )}
       </td>
@@ -41,7 +41,7 @@ const ProductRow = ({ product, onEdit, onDelete }) => {
       <td className="px-4 py-3 text-center hidden sm:table-cell">
         {hasDiscount ? (
           <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs font-semibold px-2 py-1 rounded-lg font-mono">
-            {formatPercent(product.discount)}
+            ₹{product.discount}
           </span>
         ) : (
           <span className="text-slate-400 dark:text-slate-500 text-xs">—</span>

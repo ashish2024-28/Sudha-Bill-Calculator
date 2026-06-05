@@ -14,13 +14,23 @@ export const calculateFinalTotal = (itemTotal, discountAmount) => {
 export const calculateProductTotals = (product) => {
   const price = parseFloat(product.price) || 0
   const quantity = parseInt(product.quantity) || 0
-  const discountRupees = parseFloat(product.discount) || 0
+  const discount = parseFloat(product.discount) || 0
 
-  const itemTotal = calculateItemTotal(price, quantity)
-  const discountAmount = calculateDiscountAmount(discountRupees)
-  const finalTotal = calculateFinalTotal(itemTotal, discountAmount)
+  const itemTotal = price * quantity
 
-  return { itemTotal, discountAmount, finalTotal }
+  // Discount per item
+  const discountAmount = discount * quantity
+
+  const finalTotal = Math.max(
+    0,
+    itemTotal - discountAmount
+  )
+
+  return {
+    itemTotal,
+    discountAmount,
+    finalTotal
+  }
 }
 
 export const calculateSummary = (products) => {
@@ -40,9 +50,6 @@ export const formatCurrency = (amount, currency = '₹') => {
   return `${currency}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-export const formatPercent = (value) => {
-  return `${parseFloat(value || 0).toFixed(1)}%`
-}
 
 // ID generator
 export const generateId = () => {
