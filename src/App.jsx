@@ -7,6 +7,7 @@ import SearchBar from './components/SearchBar'
 import ExportImport from './components/ExportImport'
 import ConfirmDialog from './components/ConfirmDialog'
 import ToastContainer from './components/ToastContainer'
+import InstallPrompt from './components/InstallPrompt'
 import { useProducts } from './hooks/useProducts'
 import { useTheme } from './hooks/useTheme'
 import { useToast } from './hooks/useToast'
@@ -163,6 +164,7 @@ function App() {
       />
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <InstallPrompt />
     </div>
   )
 }
