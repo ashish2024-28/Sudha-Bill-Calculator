@@ -1,9 +1,8 @@
 import React from 'react'
 import { Calculator, ShoppingCart } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
-import { formatCurrency } from '../utils/calculations'
 
-const Header = ({ summary, darkMode, onToggleDarkMode }) => {
+const Header = ({ darkMode, onToggleDarkMode }) => {
   return (
     <header className="sticky top-0 z-50 glass dark:glass-dark border-b border-slate-200 dark:border-slate-700 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

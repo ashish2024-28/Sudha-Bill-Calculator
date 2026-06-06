@@ -1,7 +1,5 @@
 import React, { useRef } from 'react'
-import {
-  Download, Upload, Trash2, Printer, Share2, FileJson
-} from 'lucide-react'
+import { Download, Upload, Trash2, Printer, Share2 } from 'lucide-react'
 import { storageService } from '../services/storageService'
 import { printBill, shareData } from '../utils/calculations'
 
@@ -91,7 +89,7 @@ const ExportImport = ({ products, summary, onImport, onClearAll, onToast }) => {
         <ActionButton icon={Share2} label="Share" onClick={handleShare} variant="primary" />
         <ActionButton icon={Download} label="Export JSON" onClick={handleExport} variant="success" />
         <ActionButton icon={Upload} label="Import JSON" onClick={handleImportClick} variant="default" />
-        <ActionButton icon={Trash2} label="Clear All" onClick={onClearAll} variant="danger" />
+        <ActionButton icon={Trash2} label="Clear All" onClick={() => { if (window.confirm('Clear all products?')) onClearAll() }} variant="danger" />
 
         <input
           ref={fileInputRef}

@@ -5,7 +5,7 @@ const ThemeToggle = ({ darkMode, onToggle }) => {
   return (
     <button
       onClick={onToggle}
-      className="relative w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all duration-200 flex items-center justify-center group"
+      className="relative w-14 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all duration-200 flex items-center justify-center group"
       aria-label="Toggle dark mode"
       title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
     >
