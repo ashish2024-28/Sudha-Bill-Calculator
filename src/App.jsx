@@ -119,7 +119,7 @@ function App() {
             so no Modify button needed here. Just the tab switcher. */}
         <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit">
           {[
-            { key: 'patandairy', label: '🐄 Patan Dairy' },
+            { key: 'patandairy', label: '🐄 Patna Dairy' },
             { key: 'arradairy',  label: '🥛 Arra Dairy'  },
           ].map(tab => (
             <button
@@ -131,7 +131,7 @@ function App() {
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                 }`}
             >
-              {tab.label}
+             <span className='text-xl'>{tab.label}</span> 
             </button>
           ))}
         </div>
