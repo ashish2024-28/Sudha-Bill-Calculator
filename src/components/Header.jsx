@@ -1,5 +1,5 @@
 import React from 'react'
-import { Calculator, ShoppingCart, DollarSign } from 'lucide-react'
+import { Calculator, ShoppingCart } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import { formatCurrency } from '../utils/calculations'
 
@@ -35,8 +35,8 @@ const Header = ({ summary, darkMode, onToggleDarkMode }) => {
 
             {/* Grand Total */}
             <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-xl px-3 py-2">
-              <DollarSign size={14} className="text-emerald-600 dark:text-emerald-400" />
-              <span className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-300 max-w-[90px] sm:max-w-none truncate block">                {formatCurrency(summary.grandTotal)}
+              <span className="text-xl font-bold font-mono text-emerald-700 dark:text-emerald-300 max-w-[90px] sm:max-w-none truncate block">
+                {formatCurrency(summary.grandTotal)}
               </span>
             </div>
 

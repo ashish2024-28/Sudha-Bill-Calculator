@@ -1,16 +1,17 @@
 import React, { useState, useCallback } from 'react'
 import Header from './components/Header'
-import ProductForm from './components/ProductForm'
-import ProductTable from './components/ProductTable'
-import SummaryCards from './components/SummaryCards'
-import SearchBar from './components/SearchBar'
-import ExportImport from './components/ExportImport'
-import ConfirmDialog from './components/ConfirmDialog'
-import ToastContainer from './components/ToastContainer'
+// import ProductForm from './components/ProductForm'
+// import ProductTable from './components/ProductTable'
+// import SummaryCards from './components/SummaryCards'
+// import SearchBar from './components/SearchBar'
+// import ExportImport from './components/ExportImport'
+// import ConfirmDialog from './components/ConfirmDialog'
+// import ToastContainer from './components/ToastContainer'
 import InstallPrompt from './components/InstallPrompt'
 import { useProducts } from './hooks/useProducts'
 import { useTheme } from './hooks/useTheme'
 import { useToast } from './hooks/useToast'
+import DairyOrderTable from './components/DairyOrderTable'
 
 function App() {
   const { darkMode, toggleDarkMode } = useTheme()
@@ -33,13 +34,12 @@ function App() {
     updateProduct,
     deleteProduct,
     clearAll,
-    importProducts
+    importProducts,
   } = useProducts(activeTab)
 
   const [editingProduct, setEditingProduct] = useState(null)
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, type: null, productId: null })
+  const [confirmDialog, setConfirmDialog]   = useState({ open: false, type: null, productId: null })
 
-  // Clear editing when switching tabs
   const handleTabChange = (tab) => {
     setActiveTab(tab)
     setEditingProduct(null)
@@ -68,7 +68,7 @@ function App() {
       type: 'delete',
       productId,
       title: 'Delete Product',
-      message: `Are you sure you want to delete "${product?.name}"? This cannot be undone.`
+      message: `Are you sure you want to delete "${product?.name}"? This cannot be undone.`,
     })
   }, [products])
 
@@ -81,7 +81,7 @@ function App() {
       open: true,
       type: 'clearAll',
       title: 'Clear All Products',
-      message: `Are you sure you want to delete all ${products.length} products? This cannot be undone.`
+      message: `Are you sure you want to delete all ${products.length} products? This cannot be undone.`,
     })
   }, [products, addToast])
 
@@ -114,16 +114,18 @@ function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* Tabs */}
-        <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-full sm:w-fit">
+        {/* ── Tab switcher ── */}
+        {/* NOTE: modifyMode and editMode are now managed INSIDE DairyOrderTable,
+            so no Modify button needed here. Just the tab switcher. */}
+        <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit">
           {[
             { key: 'patandairy', label: '🐄 Patan Dairy' },
-            { key: 'arradairy', label: '🥛 Arra Dairy' },
+            { key: 'arradairy',  label: '🥛 Arra Dairy'  },
           ].map(tab => (
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
-              className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xl font-semibold font-display transition-all duration-200
+              className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-semibold font-display transition-all duration-200
                 ${activeTab === tab.key
                   ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
@@ -134,28 +136,38 @@ function App() {
           ))}
         </div>
 
+        {/* ── Dairy Order Table
+              Key prop forces a fresh mount when switching tabs so each tab
+              gets its own independent modifyMode / editMode / showExtraTable state.
+              Tab data itself is stored inside DairyOrderTable keyed by tabKey. ── */}
+        <DairyOrderTable
+          key={activeTab}
+          tabName={activeTab === 'patandairy' ? '🐄 Patan Dairy' : '🥛 Arra Dairy'}
+          tabKey={activeTab}
+        />
+
         {/* Summary Cards */}
-        <SummaryCards summary={summary} productCount={products.length} />
+        {/* <SummaryCards summary={summary} productCount={products.length} /> */}
 
         {/* Product Form */}
-        <ProductForm
+        {/* <ProductForm
           editingProduct={editingProduct}
           onAdd={handleAddProduct}
           onUpdate={handleUpdateProduct}
           onCancelEdit={() => setEditingProduct(null)}
-        />
+        /> */}
 
         {/* Actions Bar */}
-        <ExportImport
+        {/* <ExportImport
           products={products}
           summary={summary}
           onImport={handleImport}
           onClearAll={handleClearAllRequest}
           onToast={addToast}
-        />
+        /> */}
 
         {/* Search & Filter */}
-        {products.length > 0 && (
+        {/* {products.length > 0 && (
           <SearchBar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -166,21 +178,21 @@ function App() {
             filterDiscount={filterDiscount}
             onFilterChange={setFilterDiscount}
           />
-        )}
+        )} */}
 
         {/* Product Table */}
-        <ProductTable
+        {/* <ProductTable
           products={displayProducts}
           onEdit={handleEditProduct}
           onDelete={handleDeleteRequest}
-        />
+        /> */}
 
         {/* Footer */}
         <footer className="text-center py-6 text-xs text-slate-400 dark:text-slate-500 font-body">
           <p>Sudha Bill Calculator • Offline-First PWA • Data stored locally on your device</p>
         </footer>
       </main>
-
+{/* 
       <ConfirmDialog
         isOpen={confirmDialog.open}
         title={confirmDialog.title}
@@ -188,9 +200,9 @@ function App() {
         onConfirm={handleConfirm}
         onCancel={() => setConfirmDialog({ open: false })}
         confirmLabel={confirmDialog.type === 'clearAll' ? 'Clear All' : 'Delete'}
-      />
+      /> */}
 
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      {/* <ToastContainer toasts={toasts} onRemove={removeToast} /> */}
       <InstallPrompt />
     </div>
   )
