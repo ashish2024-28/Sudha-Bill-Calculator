@@ -29,10 +29,10 @@ import React, { useState, useEffect } from 'react'
 const BASE_PRODUCTS = [
   // id         name                     price  calcMode
   { id: 'shak1', name: 'Shakti 1 L', price: 60, calcMode: 'kg' },
-  { id: 'gold05', name: 'Gold 0.5 L', price: 70, calcMode: 'pack' },
-  { id: 'shak05', name: 'Shakti 0.5 L', price: 62, calcMode: 'pack' },
-  { id: 'cow05', name: 'Cow Milk 0.5 L', price: 58, calcMode: 'pack' },
-  { id: 'cow1', name: 'Cow Milk 1 Kg', price: 57, calcMode: 'kg' },
+  { id: 'gold05', name: 'Gold 1/2 L', price: 70, calcMode: 'kg' },
+  { id: 'shak05', name: 'Shakti 1/2 L', price: 62, calcMode: 'kg' },
+  { id: 'cow05', name: 'Cow 1/2 L', price: 58, calcMode: 'kg' },
+  { id: 'cow1', name: 'Cow 1 Kg', price: 57, calcMode: 'kg' },
   { id: 'gold1', name: 'Gold 1 L', price: 68, calcMode: 'kg' },
   // Dahi: user enters kg (even). 1 kg = 2.5 packets × ₹35 = ₹87.50/kg
   { id: 'dahi', name: 'Dahi 400 g', price: 35, calcMode: 'dahi' },
@@ -342,7 +342,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
   // ── Collapsed ──
   if (!open) return (
     <button onClick={() => setOpen(true)}
-      className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 transition-colors px-4 py-2.5 border-t border-slate-100 dark:border-slate-700 w-full text-left">
+      className="text-xl font-semibold text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 transition-colors px-4 py-2.5 border-t border-slate-100 dark:border-slate-700 w-full text-left">
       📅 View saved history ({count} {count === 1 ? 'day' : 'days'})
     </button>
   )
@@ -353,7 +353,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
  
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800">
-        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
+        <span className="text-[12px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
           Saved History ({count} {count === 1 ? 'day' : 'days'})
         </span>
         <div className="flex items-center gap-2">
@@ -363,7 +363,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
             {showDel ? 'Cancel' : '🗑 Delete'}
           </button>
           <button onClick={() => setOpen(false)}
-            className="text-xs text-indigo-400 hover:text-indigo-600">✕ Close</button>
+            className=" ml-2 text-[14px] text-indigo-400 hover:text-indigo-600">✕ Close</button>
         </div>
       </div>
  
@@ -430,12 +430,12 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => { onLoad(data); setOpen(false) }}
-                  className="text-xs px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 transition-colors">
-                  Load
+                  className="text-xl px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 transition-colors">
+                  View
                 </button>
                 <button onClick={() => handleDelete(key)}
                   className="text-xs px-2 py-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                  ✕
+                  Delete
                 </button>
               </div>
             </div>
