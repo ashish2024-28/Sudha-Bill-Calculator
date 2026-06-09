@@ -1,3 +1,4 @@
+import { Heading1 } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -164,16 +165,16 @@ const initTabState = () => ({
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const STORAGE_KEY = 'dairy_history_v3'
-const loadHistory  = ()  => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch { return {} } }
-const saveHistory  = h   => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(h)) } catch {} }
- 
+const loadHistory = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch { return {} } }
+const saveHistory = h => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(h)) } catch { } }
+
 // ── Helper: delete all entries for one tab ──
 const deleteAllForTab = (tabKey) => {
   const h = loadHistory()
   Object.keys(h).filter(k => k.startsWith(tabKey + '_')).forEach(k => delete h[k])
   saveHistory(h)
 }
- 
+
 // ── Helper: delete entries in a date range for one tab ──
 // dateFrom / dateTo are 'YYYY-MM-DD' strings (inclusive both ends)
 const deleteRangeForTab = (tabKey, dateFrom, dateTo) => {
@@ -186,7 +187,7 @@ const deleteRangeForTab = (tabKey, dateFrom, dateTo) => {
     })
   saveHistory(h)
 }
- 
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TABLE HEADER
@@ -302,33 +303,33 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, discMilk, discDahi,
 // HISTORY PANEL  (last 30 saved days per tab)
 // ═══════════════════════════════════════════════════════════════════════════════
 const HistoryPanel = ({ tabKey, onLoad }) => {
-  const [history,   setHistory]   = useState({})
-  const [open,      setOpen]      = useState(false)
-  const [showDel,   setShowDel]   = useState(false)    // toggle delete controls
+  const [history, setHistory] = useState({})
+  const [open, setOpen] = useState(false)
+  const [showDel, setShowDel] = useState(false)    // toggle delete controls
   const [rangeFrom, setRangeFrom] = useState('')
-  const [rangeTo,   setRangeTo]   = useState('')
+  const [rangeTo, setRangeTo] = useState('')
   const [confirmAll, setConfirmAll] = useState(false)  // confirm "delete all" step
- 
+
   const reload = () => setHistory(loadHistory())
   useEffect(() => { if (open) reload() }, [open])
- 
+
   // All entries for this tab, sorted newest first — no slice limit (lifetime)
   const tabHistory = Object.entries(history)
     .filter(([k]) => k.startsWith(tabKey + '_'))
     .sort((a, b) => b[0].localeCompare(a[0]))
- 
+
   // ── Delete single entry ──
   const handleDelete = key => {
     const h = loadHistory(); delete h[key]; saveHistory(h); reload()
   }
- 
+
   // ── Delete all entries for this tab ──
   const handleDeleteAll = () => {
     deleteAllForTab(tabKey)
     setConfirmAll(false)
     reload()
   }
- 
+
   // ── Delete range ──
   const handleDeleteRange = () => {
     if (!rangeFrom || !rangeTo) return
@@ -336,9 +337,9 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
     setRangeFrom(''); setRangeTo('')
     reload()
   }
- 
+
   const count = tabHistory.length
- 
+
   // ── Collapsed ──
   if (!open) return (
     <button onClick={() => setOpen(true)}
@@ -346,11 +347,11 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
       📅 View saved history ({count} {count === 1 ? 'day' : 'days'})
     </button>
   )
- 
+
   // ── Expanded ──
   return (
     <div className="border-t border-slate-100 dark:border-slate-700">
- 
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800">
         <span className="text-[12px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
@@ -366,31 +367,31 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
             className=" ml-2 text-[14px] text-indigo-400 hover:text-indigo-600">✕ Close</button>
         </div>
       </div>
- 
+
       {/* ── Delete controls (shown when showDel) ── */}
       {showDel && (
         <div className="px-4 py-3 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/30 space-y-3">
- 
+
           {/* Delete all */}
           <div className="flex items-center gap-2">
             {!confirmAll
               ? <button onClick={() => setConfirmAll(true)}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors">
-                  Delete all {count} entries
-                </button>
+                className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors">
+                Delete all {count} entries
+              </button>
               : <>
-                  <span className="text-xs text-red-600 dark:text-red-400 font-semibold">Sure? This cannot be undone.</span>
-                  <button onClick={handleDeleteAll}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
-                    Yes, delete all
-                  </button>
-                  <button onClick={() => setConfirmAll(false)}
-                    className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors">
-                    Cancel
-                  </button>
-                </>}
+                <span className="text-xs text-red-600 dark:text-red-400 font-semibold">Sure? This cannot be undone.</span>
+                <button onClick={handleDeleteAll}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
+                  Yes, delete all
+                </button>
+                <button onClick={() => setConfirmAll(false)}
+                  className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors">
+                  Cancel
+                </button>
+              </>}
           </div>
- 
+
           {/* Delete range */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Delete range:</span>
@@ -406,17 +407,17 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
           </div>
         </div>
       )}
- 
+
       {/* No entries */}
       {tabHistory.length === 0 && (
         <p className="px-4 py-4 text-xs text-slate-400">No saved records yet. Fill in orders and click 💾 Save.</p>
       )}
- 
+
       {/* Entry list (scrollable, no limit) */}
       <div className="divide-y divide-slate-100 dark:divide-slate-700 max-h-80 overflow-y-auto">
         {tabHistory.map(([key, data]) => {
           const dateStr = key.replace(tabKey + '_', '')
-          const mt = calcTotals(data.rows  || [], data.discMilk, data.discDahi)
+          const mt = calcTotals(data.rows || [], data.discMilk, data.discDahi)
           const et = calcTotals(data.extra || [], data.discMilk, data.discDahi)
           return (
             <div key={key} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/30">
@@ -558,6 +559,7 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
+  
   // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div className="card overflow-hidden">
@@ -595,9 +597,17 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
         {[['discMilk', 'Milk ₹/Kg'], ['discDahi', 'Dahi ₹/pkt']].map(([key, label]) => (
           <label key={key} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
             {label}
-            <input type="text" value={st[key]}
-              onChange={e => upd({ [key]: parseFloat(e.target.value) || 0 })}
-              className="w-14 border border-slate-200 dark:border-slate-600 rounded-lg text-center text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400" />
+
+            {modifyMode
+              ? <>
+                <input type="number" value={st[key]}
+                  onChange={e => upd({ [key]: parseFloat(e.target.value) || 0 })}
+                  className="w-14 border border-slate-200 dark:border-slate-600 rounded-lg text-center text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring focus:ring-blue-400" />
+              </>
+              : <> <span className="w-14 border border-slate-200 dark:border-slate-600 rounded-lg text-center text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400">
+                {st[key]}</span>
+              </>
+            }
           </label>
         ))}
         {/* Formula reminder */}
@@ -684,7 +694,7 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
         <input type="date" value={selectedDate}
           onChange={e => setSelectedDate(e.target.value)}
           className="px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400" />
-       
+
         <button onClick={handleSave}
           className="px-4 py-1.5 rounded-xl text-xl font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
           💾 Save
