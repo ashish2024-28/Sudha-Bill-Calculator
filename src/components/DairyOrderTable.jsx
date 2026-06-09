@@ -29,15 +29,18 @@ import React, { useState, useEffect } from 'react'
 // ═══════════════════════════════════════════════════════════════════════════════
 const BASE_PRODUCTS = [
   // id         name                     price  calcMode
-  { id: 'shak1', name: 'Shakti 1 L', price: 60, calcMode: 'kg' },
-  { id: 'gold05', name: 'Gold 1/2 L', price: 70, calcMode: 'kg' },
-  { id: 'shak05', name: 'Shakti 1/2 L', price: 62, calcMode: 'kg' },
-  { id: 'cow05', name: 'Cow 1/2 L', price: 58, calcMode: 'kg' },
-  { id: 'cow1', name: 'Cow 1 Kg', price: 57, calcMode: 'kg' },
-  { id: 'gold1', name: 'Gold 1 L', price: 68, calcMode: 'kg' },
+  { id: 'shak1', name: 'Shakti 1 L', price: 60, calcMode: 'kg', discAmt: 2.3 },
+  { id: 'gold05', name: 'Gold 1/2 L', price: 70, calcMode: 'kg', discAmt: 2.3 },
+  { id: 'shak05', name: 'Shakti 1/2 L', price: 62, calcMode: 'kg', discAmt: 2.3 },
+  { id: 'cow05', name: 'Cow 1/2 L', price: 58, calcMode: 'kg', discAmt: 2.3 },
+  { id: 'cow1', name: 'Cow 1 Kg', price: 57, calcMode: 'kg', discAmt: 2.3 },
+  { id: 'gold1', name: 'Gold 1 L', price: 68, calcMode: 'kg', discAmt: 2.3 },
+
   // Dahi: user enters kg (even). 1 kg = 2.5 packets × ₹35 = ₹87.50/kg
-  { id: 'dahi', name: 'Dahi 400 g', price: 35, calcMode: 'dahi' },
+  { id: 'dahi400', name: 'Dahi 400 g', price: 35, calcMode: 'dahi', discAmt: 2.9 },
+  { id: 'dahi200', name: 'Dahi 200 g', price: 20, calcMode: 'dahi', discAmt: 2.4 },
 ]
+
 
 // ─── Calendar helpers ──────────────────────────────────────────────────────────
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -51,11 +54,11 @@ const fmtDateLabel = dateStr => {
 
 // ─── Row factory ───────────────────────────────────────────────────────────────
 // Creates a zeroed order row from a product definition.
-const mkRow = ({ id, name, price, calcMode }) => ({
-  id,
-  name,
+const mkRow = ({ id, name, price, calcMode, discAmt }) => ({
+  id, name,
   price: Number(price),
-  calcMode,          // 'kg' | 'pack' | 'dahi'  — drives all calculations
+  calcMode,
+  disc: Number(discAmt) || 2.30,   // ← per-row discount from product definition
   morn: 0,
   eve: 0,
 })
@@ -68,36 +71,44 @@ const fmtN = n => {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CORE CALCULATION  —  calcRow
+// CORE CALCULATION — calcRow
 // ═══════════════════════════════════════════════════════════════════════════════
-//
-// Returns: { qty, packets, actualKg, gross, discAmt, net, inputLabel, kgLabel }
-//
-//  qty       – raw user input total (morn + eve)
-//  packets   – actual 400g packets sold  (only meaningful for dahi; = qty for others)
-//  actualKg  – weight in kg used for totals bar
-//  gross     – pre-discount rupee amount
-//  discAmt   – discount deducted
-//  net       – final amount
-//  inputLabel – unit shown in column header / tooltips ("kg/L" or "packs" or "kg")
-//  kgLabel   – what to show in the Kg/L column
-//
-const calcRow = (r, discMilk, discDahi) => {
-  const qty = (Number(r.morn) || 0) + (Number(r.eve) || 0)
 
-  if (r.calcMode === 'dahi') {
+const calcRow = (r) => {
+  const qty = (Number(r.morn) || 0) + (Number(r.eve) || 0)
+  const disc = Number(r.disc) || 0
+
+  if (r.id === 'dahi400') {
     // ── Dahi 400g ───────────────────────────────────────────────────────────
     // qty = kg entered by user (must be even: 2, 4, 6 …)
     // packets = qty × 2.5   (400g packs per kg)
     const packets = qty * 2.5
     const gross = packets * Number(r.price)          // packets × ₹35
-    const discAmt = Number(discDahi) * packets         // ₹2.9 × packets
+
+    const discAmt = disc * packets
+
     return {
-      qty,
-      packets,
+      qty, packets,
       actualKg: qty,                                  // kg for totals
-      gross,
-      discAmt,
+      gross, discAmt,
+      net: Math.max(0, gross - discAmt),
+      inputLabel: 'kg',
+      kgLabel: `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
+    }
+  }
+  if (r.id === 'dahi200') {
+    // ── Dahi 400g ───────────────────────────────────────────────────────────
+    // qty = kg entered by user (must be even: 2, 4, 6 …)
+    // packets = qty × 2.5   (400g packs per kg)
+    const packets = qty * 5
+    const gross = packets * Number(r.price)          // packets × ₹20
+
+    const discAmt = disc * packets
+
+    return {
+      qty, packets,
+      actualKg: qty,                                  // kg for totals
+      gross, discAmt,
       net: Math.max(0, gross - discAmt),
       inputLabel: 'kg',
       kgLabel: `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
@@ -108,13 +119,13 @@ const calcRow = (r, discMilk, discDahi) => {
     // ── Milk 1 kg/L packs ───────────────────────────────────────────────────
     // qty = actual kg/L entered
     const gross = qty * Number(r.price)
-    const discAmt = Number(discMilk) * qty
+
+    const discAmt = disc * qty
+
     return {
-      qty,
-      packets: qty,
+      qty, packets: qty,
       actualKg: qty,
-      gross,
-      discAmt,
+      gross, discAmt,
       net: Math.max(0, gross - discAmt),
       inputLabel: 'kg/L',
       kgLabel: `${fmtN(qty)} L`,
@@ -127,11 +138,9 @@ const calcRow = (r, discMilk, discDahi) => {
   const gross = qty * Number(r.price)
   const discAmt = Number(discMilk) * qty
   return {
-    qty,
-    packets: qty,
+    qty, packets: qty,
     actualKg: qty * 0.5,                              // 0.5 L per pack for totals
-    gross,
-    discAmt,
+    gross, discAmt,
     net: Math.max(0, gross - discAmt),
     inputLabel: 'packs',
     kgLabel: `${fmtN(qty)} L`,
@@ -139,9 +148,12 @@ const calcRow = (r, discMilk, discDahi) => {
 }
 
 // ─── Aggregate totals across all rows ─────────────────────────────────────────
-const calcTotals = (rows, discMilk, discDahi) =>
+
+const calcTotals = rows =>
   rows.reduce((acc, r) => {
-    const c = calcRow(r, discMilk, discDahi)
+
+    const c = calcRow(r)
+
     const isDahi = r.calcMode === 'dahi'
     return {
       milkKg: acc.milkKg + (!isDahi ? c.actualKg : 0),
@@ -154,8 +166,6 @@ const calcTotals = (rows, discMilk, discDahi) =>
 
 // ─── Initial tab state ─────────────────────────────────────────────────────────
 const initTabState = () => ({
-  discMilk: 2.30,
-  discDahi: 2.90,
   rows: BASE_PRODUCTS.map(mkRow),
   extra: BASE_PRODUCTS.map(mkRow),
 })
@@ -164,7 +174,8 @@ const initTabState = () => ({
 // localStorage  (saves per-day history, max 30 entries per tab)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const STORAGE_KEY = 'dairy_history_v3'
+const STORAGE_KEY = 'dairy_history_v4'
+
 const loadHistory = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch { return {} } }
 const saveHistory = h => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(h)) } catch { } }
 
@@ -201,7 +212,9 @@ const THead = ({ showDel }) => (
       <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 62 }}>Morning</th>
       <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 62 }}>Evening</th>
       <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 56 }}> Total Kg </th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase" style={{ width: 74 }}>Net ₹</th>
+      <th className="px-1 py-2 text-center text-xm font-semibold text-emerald-600 dark:text-emerald-400 uppercase" style={{ width: 80 }}>Total ₹</th>
+      <th className="px-1 py-2 text-center text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 60 }}>Disc ₹</th>
+
       {showDel && <th style={{ width: 72 }} className="px-1 py-2 text-center text-xs font-semibold text-slate-400 uppercase">Move/Del</th>}
     </tr>
   </thead>
@@ -210,15 +223,16 @@ const THead = ({ showDel }) => (
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRODUCT ROW
 // ═══════════════════════════════════════════════════════════════════════════════
-const ProductRow = ({ row, idx, total, modifyMode, editMode, discMilk, discDahi, onUpdate, onDelete, onMoveUp, onMoveDown }) => {
-  const { qty, actualKg, net, kgLabel, inputLabel } = calcRow(row, discMilk, discDahi)
-  const isDahi = row.calcMode === 'dahi'
+const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete, onMoveUp, onMoveDown }) => {
+  const { qty, actualKg, net, kgLabel, discAmt } = calcRow(row)
+
+  const isDahi = row.id === 'dahi400'
+  // ── Dahi: warn if odd number entered ──
+  const dahiWarn = isDahi && qty > 0 && qty % 2 !== 0
 
   const cell = 'border-b border-slate-100 dark:border-slate-700/50 border-r border-slate-100 dark:border-slate-700/50 px-1 py-1.5 text-center text-xs'
   const inp = 'w-full bg-transparent border-none outline-none text-xs text-center font-mono text-slate-800 dark:text-slate-100'
 
-  // ── Dahi: warn if odd number entered ──
-  const dahiWarn = isDahi && qty > 0 && qty % 2 !== 0
 
   return (
     <tr className={`hover:bg-blue-50/20 dark:hover:bg-blue-900/10 transition-colors ${dahiWarn ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
@@ -229,7 +243,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, discMilk, discDahi,
           ? <input className={`${inp} text-left`} value={row.name}
             onChange={e => onUpdate(idx, 'name', e.target.value)} />
           : <div>
-            <span className="text-slate-800 dark:text-slate-100 text-[14px] leading-tight ">{row.name}</span>
+            <span className="text-slate-800 dark:text-slate-100 text-[15px] leading-tight ">{row.name}</span>
             {isDahi && <span className="block text-[10px] text-slate-400">enter kg (even)</span>}
           </div>}
       </td>
@@ -250,7 +264,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, discMilk, discDahi,
             className={`${inp} focus:bg-blue-50 dark:focus:bg-blue-900/30 rounded`}
             value={row.morn || ''} placeholder="0"
             onChange={e => onUpdate(idx, 'morn', e.target.value)} />
-          : <span className="text-slate-600 dark:text-slate-300 text-[16px]">{row.morn || '-'}</span>}
+          : <span className="text-slate-600 dark:text-slate-300 text-[17px]">{row.morn || '-'}</span>}
       </td>
 
       {/* Evening input */}
@@ -279,7 +293,23 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, discMilk, discDahi,
 
       {/* Net amount */}
       <td className="border-b border-slate-100 dark:border-slate-700/50 px-2 py-1.5 text-center">
-        <span className="font-mono text-emerald-700 dark:text-emerald-400 text-[15px]">{fmt(net)}</span>
+        <span className="font-mono text-emerald-700 dark:text-emerald-400 text-[16px]">{fmt(net)}</span>
+      </td>
+
+      {/* Discount — editable only in modifyMode, otherwise read-only */}
+      <td className={cell}>
+        {modifyMode
+          ? <input
+            type="number"
+            min="0"
+            step="0.1"
+            className={`${inp} focus:bg-orange-50 dark:focus:bg-orange-900/20 rounded border border-orange-200 dark:border-orange-800 w-14`}
+            value={row.disc}
+            onChange={e => onUpdate(idx, 'disc', e.target.value)}
+          />
+          : <span className="text-orange-500 dark:text-orange-400 text-[12px] font-mono">
+            {fmtN(row.disc)}
+          </span>}
       </td>
 
       {/* Move / Delete buttons (modifyMode only) */}
@@ -318,10 +348,6 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
     .filter(([k]) => k.startsWith(tabKey + '_'))
     .sort((a, b) => b[0].localeCompare(a[0]))
 
-  // ── Delete single entry ──
-  const handleDelete = key => {
-    const h = loadHistory(); delete h[key]; saveHistory(h); reload()
-  }
 
   // ── Delete all entries for this tab ──
   const handleDeleteAll = () => {
@@ -434,10 +460,24 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
                   className="text-xl px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 transition-colors">
                   View
                 </button>
-                <button onClick={() => handleDelete(key)}
-                  className="text-xs px-2 py-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                  Delete
-                </button>
+
+                {!confirmAll
+                  ? <button onClick={() => setConfirmAll(true)}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors">
+                    Delete
+                  </button>
+                  : <>
+                    <span className="text-xm text-red-600 dark:text-red-400 font-semibold">Sure? This cannot be undone.</span>
+                    <button onClick={handleDeleteAll}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
+                      Yes, delete
+                    </button>
+                    <button onClick={() => setConfirmAll(false)}
+                      className="text-xm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors">
+                      Cancel
+                    </button>
+                  </>}
+
               </div>
             </div>
           )
@@ -480,7 +520,7 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
     return a
   }
 
-  // ── Aggregated numbers ─────────────────────────────────────────────────────
+  // ── Aggregated numbers ── Totals  ─────────────────────────────────────────────────────
   const mainTotals = calcTotals(st.rows, st.discMilk, st.discDahi)
   const extraTotals = calcTotals(st.extra, st.discMilk, st.discDahi)
 
@@ -498,12 +538,12 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
     const keys = Object.keys(h).filter(k => k.startsWith(tabKey + '_')).sort()
     // if (keys.length >= 30 && !keys.includes(key)) delete h[keys[0]]
     // No entry cap — history is kept for lifetime
-    h[key] = { discMilk: st.discMilk, discDahi: st.discDahi, rows: st.rows, extra: st.extra }
+    h[key] = { rows: st.rows, extra: st.extra }
     saveHistory(h)
     setSaveMsg('✓ Saved!')
     setTimeout(() => setSaveMsg(''), 2500)
   }
-  const handleLoad = data => upd({ discMilk: data.discMilk, discDahi: data.discDahi, rows: data.rows, extra: data.extra })
+  const handleLoad = data => upd({ rows: data.rows, extra: data.extra })
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TABLE RENDERER  (reused for main rows and extra rows)
@@ -543,12 +583,12 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
 
             {/* Subtotal row */}
             <tr className="bg-slate-50 dark:bg-slate-700/30">
-              <td colSpan={modifyMode ? 6 : 5}
-                className="px-3 py-2.5 text-right text-[14px] font-semibold text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
+              <td colSpan={modifyMode ? 7 : 4}
+                className=" text-right text-[15px] font-semibold text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
                 {isExtra ? 'Extra subtotal' : 'Main subtotal'}
               </td>
-              <td colSpan={3} className="px-2 py-2.5 text-center border-t border-slate-200 dark:border-slate-700">
-                <span className="font-sembold text-[17px] font-mono text-emerald-600 dark:text-emerald-400">{fmt(totals.net)}</span>
+              <td colSpan={3} className=" py-3 text-center border-t border-slate-200 dark:border-slate-700">
+                <span className="font-semibold text-[18px] font-mono text-emerald-600 dark:text-emerald-400">{fmt(totals.net)}</span>
               </td>
             </tr>
           </tbody>
@@ -559,7 +599,6 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
-  
   // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div className="card overflow-hidden">
@@ -591,30 +630,14 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
         </div>
       </div>
 
-      {/* ── Discount bar ── */}
-      <div className="flex items-center gap-4 px-4 py-2.5 bg-slate-50/50 dark:bg-slate-700/30 border-b border-slate-100 dark:border-slate-700 flex-wrap">
-        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Discount:</span>
-        {[['discMilk', 'Milk ₹/Kg'], ['discDahi', 'Dahi ₹/pkt']].map(([key, label]) => (
-          <label key={key} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-            {label}
-
-            {modifyMode
-              ? <>
-                <input type="number" value={st[key]}
-                  onChange={e => upd({ [key]: parseFloat(e.target.value) || 0 })}
-                  className="w-14 border border-slate-200 dark:border-slate-600 rounded-lg text-center text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring focus:ring-blue-400" />
-              </>
-              : <> <span className="w-14 border border-slate-200 dark:border-slate-600 rounded-lg text-center text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400">
-                {st[key]}</span>
-              </>
-            }
-          </label>
-        ))}
-        {/* Formula reminder */}
-        <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-auto hidden sm:block">
-          Milk 1L: qty×price−disc×qty &nbsp;|&nbsp; Dahi: kg×2.5pkt×(35−disc)
-        </span>
-      </div>
+      {/* Modify mode hint */}
+      {modifyMode && (
+        <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-100 dark:border-orange-800">
+          <span className="text-xs text-orange-600 dark:text-orange-400">
+            ⚙ Modify mode: edit product names, prices, and per-row discounts. Default per product: <strong>discAmt</strong> from product definition.
+          </span>
+        </div>
+      )}
 
       {/* ── Main product table ── */}
       {renderTable(st.rows, false)}
@@ -627,10 +650,10 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
           </div>
           <div className="px-4 py-2 space-y-1">
             {extraActive.map(r => {
-              const { qty, actualKg, net, kgLabel } = calcRow(r, st.discMilk, st.discDahi)
+              const { qty, net, kgLabel } = calcRow(r)
               return (
                 <div key={r.id} className="flex justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-700/50">
-                  <span className="text-[14px] text-slate-700 dark:text-slate-200">{r.name} → {qty}  = {kgLabel}</span>
+                  <span className="text-[15px] py-1 text-slate-700 dark:text-slate-200">{r.name}  =  {kgLabel}</span>
                   <span className="text-[18px] font-mono text-slate-800 dark:text-slate-100">{fmt(net)}</span>
                 </div>
               )
@@ -682,8 +705,8 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
           { label: 'Grand total', value: fmt(finalNet), cls: 'text-emerald-600 dark:text-emerald-400' },
         ].map(({ label, value, cls }) => (
           <div key={label} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
-            <p className="text-[18px] text-slate-500 dark:text-slate-400">{label}</p>
-            <p className={`text-[18px] font-mono font-bold text-sm mt-0.5 ${cls}`}>{value}</p>
+            <p className="text-[17px] text-slate-500 dark:text-slate-400">{label}</p>
+            <p className={`text-[19px] font-mono font-bold mt-0.5 ${cls}`}>{value}</p>
           </div>
         ))}
       </div>
