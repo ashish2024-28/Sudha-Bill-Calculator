@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import Header from './components/Header'
 import { useTheme } from './hooks/useTheme'
 import InstallPrompt from './components/InstallPrompt'
+import ExportImport from './components/ExportImport'
 import DairyOrderTable from './components/DairyOrderTable'
 import UpdateToast from './components/UpdateToast'
 
@@ -19,6 +20,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+      
+      <InstallPrompt />
+      <UpdateToast />
+  
       <Header
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
@@ -33,6 +38,7 @@ function App() {
           {[
             { key: 'patandairy', label: '🐄 Patna Dairy' },
             { key: 'arradairy',  label: '🥛 Arra Dairy'  },
+            { key: 'otherdairy',  label: '🍶 Other Dairy'  },
           ].map(tab => (
             <button
               key={tab.key}
@@ -54,10 +60,11 @@ function App() {
               Tab data itself is stored inside DairyOrderTable keyed by tabKey. ── */}
         <DairyOrderTable
           key={activeTab}
-          tabName={activeTab === 'patandairy' ? '🐄 Patan Dairy' : '🥛 Arra Dairy'}
+          tabName={activeTab === 'patandairy' ? '🐄 Patan Dairy' : activeTab === 'arradairy' ? '🥛 Arra Dairy' : '🍶 Other Dairy'}
           tabKey={activeTab}
         />
 
+       <ExportImport />
         
         {/* Footer */}
         <footer className="text-center py-6 text-xs text-slate-400 dark:text-slate-500 font-body">
@@ -70,7 +77,10 @@ function App() {
 
        <UpdateToast />
 
+       
+
     </div>
+
   )
 }
 

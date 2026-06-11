@@ -339,6 +339,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
   const [rangeFrom, setRangeFrom] = useState('')
   const [rangeTo, setRangeTo] = useState('')
   const [confirmAll, setConfirmAll] = useState(false)  // confirm "delete all" step
+  const [confirmKey, setConfirmKey] = useState(null)
 
   const reload = () => setHistory(loadHistory())
   useEffect(() => { if (open) reload() }, [open])
@@ -348,6 +349,14 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
     .filter(([k]) => k.startsWith(tabKey + '_'))
     .sort((a, b) => b[0].localeCompare(a[0]))
 
+  // ── Delete single entry ──
+  const handleDelete = key => {
+    const h = loadHistory()
+    delete h[key]
+    saveHistory(h)
+    setConfirmKey(null)
+    reload()
+  }
 
   // ── Delete all entries for this tab ──
   const handleDeleteAll = () => {
@@ -461,23 +470,25 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
                   View
                 </button>
 
-                {!confirmAll
-                  ? <button onClick={() => setConfirmAll(true)}
+                {confirmKey !== key
+                  ? <button
+                    onClick={() => setConfirmKey(key)}
                     className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors">
                     Delete
                   </button>
                   : <>
-                    <span className="text-xm text-red-600 dark:text-red-400 font-semibold">Sure? This cannot be undone.</span>
-                    <button onClick={handleDeleteAll}
+                    <span className="text-xs text-red-600 dark:text-red-400 font-semibold">Sure?</span>
+                    <button
+                      onClick={() => handleDelete(key)}
                       className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
-                      Yes, delete
+                      Yes
                     </button>
-                    <button onClick={() => setConfirmAll(false)}
-                      className="text-xm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors">
-                      Cancel
+                    <button
+                      onClick={() => setConfirmKey(null)}
+                      className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors">
+                      No
                     </button>
                   </>}
-
               </div>
             </div>
           )
@@ -499,6 +510,7 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
   const [tabData, setTabData] = useState({
     patandairy: initTabState(),
     arradairy: initTabState(),
+    otherdairy: initTabState(),
   })
   const [modifyMode, setModifyMode] = useState(false)
   const [editMode, setEditMode] = useState(false)
@@ -607,7 +619,7 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
         <div>
           <div className="font-display font-semibold text-slate-800 dark:text-slate-100 text-xl">{tabName} — Order Sheet</div>
-          <div className="text-xl text-slate-400 dark:text-slate-500 mt-0.5">{fmtDateLabel(selectedDate)}</div>
+          <div className="text-xl text-slate-600 dark:text-slate-400 mt-0.5">{fmtDateLabel(selectedDate)}</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Modify: edit product names, prices; add/delete/reorder rows */}
