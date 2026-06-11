@@ -37,8 +37,8 @@ const BASE_PRODUCTS = [
   { id: 'gold1', name: 'Gold 1 L', price: 68, calcMode: 'kg', discAmt: 2.3 },
 
   // Dahi: user enters kg (even). 1 kg = 2.5 packets × ₹35 = ₹87.50/kg
-  { id: 'dahi400', name: 'Dahi 400 g', price: 35, calcMode: 'dahi', discAmt: 2.9 },
-  { id: 'dahi200', name: 'Dahi 200 g', price: 20, calcMode: 'dahi', discAmt: 2.4 },
+  { id: 'dahi400', name: 'Dahi 400 g', price: 35, calcMode: 'dahi', discAmt: 2.865 },
+  { id: 'dahi200', name: 'Dahi 200 g', price: 20, calcMode: 'dahi', discAmt: 1.7 },
 ]
 
 
