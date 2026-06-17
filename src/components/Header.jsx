@@ -1,6 +1,8 @@
 import React from 'react'
 import { Calculator, ShoppingCart } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
+import VersionPicker from './VersionPicker'
+
 
 const Header = ({ darkMode, onToggleDarkMode }) => {
   return (
@@ -25,9 +27,13 @@ const Header = ({ darkMode, onToggleDarkMode }) => {
           {/* Stats Badges */}
           <div className="flex items-center gap-2 sm:gap-3">
 
+            <VersionPicker />
+
             {/* Theme Toggle */}
             <ThemeToggle darkMode={darkMode} onToggle={onToggleDarkMode} />
           </div>
+
+
         </div>
       </div>
     </header>

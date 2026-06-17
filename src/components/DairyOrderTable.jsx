@@ -33,17 +33,17 @@ const BASE_PRODUCTS = [
   { id: 'gold05', name: 'Gold 1/2 L', price: 70, calcMode: 'kg', discAmt: 2.3 },
   { id: 'shak05', name: 'Shakti 1/2 L', price: 62, calcMode: 'kg', discAmt: 2.3 },
   { id: 'cow05', name: 'Cow 1/2 L', price: 58, calcMode: 'kg', discAmt: 2.3 },
-  { id: 'cow1', name: 'Cow 1 Kg', price: 57, calcMode: 'kg', discAmt: 2.3 },
+  { id: 'cow1', name: 'Cow 1 L', price: 57, calcMode: 'kg', discAmt: 2.3 },
   { id: 'gold1', name: 'Gold 1 L', price: 68, calcMode: 'kg', discAmt: 2.3 },
 
   // Dahi: user enters kg (even). 1 kg = 2.5 packets × ₹35 = ₹87.50/kg
-  { id: 'dahi400', name: 'Dahi 400 g', price: 35, calcMode: 'dahi', discAmt: 2.865 },
   { id: 'dahi200', name: 'Dahi 200 g', price: 20, calcMode: 'dahi', discAmt: 1.7 },
+  { id: 'dahi400', name: 'Dahi 400 g', price: 35, calcMode: 'dahi', discAmt: 2.865 },
 ]
 
 
 // ─── Calendar helpers ──────────────────────────────────────────────────────────
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 
@@ -64,9 +64,9 @@ const mkRow = ({ id, name, price, calcMode, discAmt }) => ({
 })
 
 const uid = () => 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
-const fmt = n => '₹' + parseFloat(n).toFixed(1)
+const fmt = n => '₹' + parseFloat(n || 0).toFixed(1)
 const fmtN = n => {
-  const v = parseFloat(n)
+  const v = parseFloat(n || 0)
   return v % 1 === 0 ? String(v) : v.toFixed(2)
 }
 
@@ -136,7 +136,7 @@ const calcRow = (r) => {
   // qty = number of 500 ml packs entered
   // discount is per pack (not per litre)
   const gross = qty * Number(r.price)
-  const discAmt = Number(discMilk) * qty
+  const discAmt = disc * qty
   return {
     qty, packets: qty,
     actualKg: qty * 0.5,                              // 0.5 L per pack for totals
@@ -168,6 +168,10 @@ const calcTotals = rows =>
 const initTabState = () => ({
   rows: BASE_PRODUCTS.map(mkRow),
   extra: BASE_PRODUCTS.map(mkRow),
+  lessAmt: Number(localStorage.getItem('dairy_last_less_amt') || 0),
+  payOnline: 0,
+  payOffline: 0,
+  payMode: 'auto', // 'auto' = offline auto-fills from online; 'manual' = both typed by user
 })
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -175,6 +179,7 @@ const initTabState = () => ({
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const STORAGE_KEY = 'dairy_history_v4'
+const LAST_LESS_KEY = 'dairy_last_less_amt'
 
 const loadHistory = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch { return {} } }
 const saveHistory = h => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(h)) } catch { } }
@@ -199,6 +204,141 @@ const deleteRangeForTab = (tabKey, dateFrom, dateTo) => {
   saveHistory(h)
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SUMMARY BUILDERS  (used by both "Open Summary Page" and "Share as Text")
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Builds a plain-text summary (for clipboard / Web Share API text body)
+const buildSummaryText = ({ tabName, dateLabel, rows, extra, allMilkL, allDahiKg, finalDisc,
+  finalNet, lessAmt, finalAfterLess, payOnline, payOffline, historyDays = [], historyTotals }) => {
+  const lines = []
+  lines.push(`📋 ${tabName} — Order Summary`)
+  lines.push(`📅 ${dateLabel}`)
+  lines.push('')
+  lines.push('── Main Order ──')
+  rows.filter(r => calcRow(r).qty > 0).forEach(r => {
+    const c = calcRow(r)
+    lines.push(`${r.name}: ${c.kgLabel.replace('\n', ' ')}  =  ${fmt(c.net)}`)
+  })
+  const extraActive = extra.filter(r => calcRow(r).qty > 0)
+  if (extraActive.length) {
+    lines.push('')
+    lines.push('── Extra Milk ──')
+    extraActive.forEach(r => {
+      const c = calcRow(r)
+      lines.push(`${r.name}: ${c.kgLabel.replace('\n', ' ')}  =  ${fmt(c.net)}`)
+    })
+  }
+  lines.push('')
+  lines.push(`Total milk: ${fmtN(allMilkL)} L`)
+  lines.push(`Total dahi: ${fmtN(allDahiKg)} kg`)
+  lines.push(`Total discount: -${fmt(finalDisc)}`)
+  lines.push(`Final Total Amount: ${fmt(finalNet)}`)
+  if (lessAmt > 0) {
+    lines.push(`Less Amount: -${fmt(lessAmt)}`)
+    lines.push(`Final Total Amount (after less): ${fmt(finalAfterLess)}`)
+  }
+  lines.push('')
+  lines.push(`Payment — Online: ${fmt(payOnline)}  |  Offline: ${fmt(payOffline)}`)
+
+  // ── All saved history for this tab ──
+  if (historyDays.length) {
+    lines.push('')
+    lines.push(`══ All Saved History (${historyDays.length} ${historyDays.length === 1 ? 'day' : 'days'}) ══`)
+    historyDays.forEach(d => {
+      lines.push(`${d.dateLabel} — Milk ${fmtN(d.milkL)}L, Dahi ${fmtN(d.dahiKg)}kg = ${fmt(d.net)}`)
+    })
+    lines.push('')
+    lines.push(`Lifetime totals — Milk: ${fmtN(historyTotals.milkL)} L | Dahi: ${fmtN(historyTotals.dahiKg)} kg | Net: ${fmt(historyTotals.net)}`)
+  }
+
+  return lines.join('\n')
+}
+
+// Builds a full printable HTML page (for the Summary tab / "Save as PDF")
+const buildSummaryHTML = ({ tabName, dateLabel, rows, extra, allMilkL, allDahiKg, finalDisc,
+  finalNet, lessAmt, finalAfterLess, payOnline, payOffline, historyDays = [], historyTotals }) => {
+
+  const rowsHtml = (list) => list.filter(r => calcRow(r).qty > 0).map(r => {
+    const c = calcRow(r)
+    return `<tr>
+      <td>${r.name}</td>
+      <td style="text-align:center">${c.kgLabel.replace('\n', ' ')}</td>
+      <td style="text-align:right">${fmt(c.net)}</td>
+    </tr>`
+  }).join('')
+
+  const extraActive = extra.filter(r => calcRow(r).qty > 0)
+
+  const historyRowsHtml = historyDays.map(d => `<tr>
+    <td>${d.dateLabel}</td>
+    <td style="text-align:center">${fmtN(d.milkL)} L</td>
+    <td style="text-align:center">${fmtN(d.dahiKg)} kg</td>
+    <td style="text-align:right">${fmt(d.net)}</td>
+  </tr>`).join('')
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>${tabName} — Summary — ${dateLabel}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #1e293b; }
+  h1 { font-size: 22px; margin-bottom: 2px; }
+  .sub { color: #64748b; font-size: 14px; margin-bottom: 18px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  th, td { padding: 7px 6px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+  th { text-align: left; color: #64748b; font-size: 12px; text-transform: uppercase; }
+  .section-title { font-size: 13px; font-weight: 700; color: #475569; text-transform: uppercase; margin: 18px 0 6px; }
+  .totals { background: #f8fafc; border-radius: 10px; padding: 12px 16px; margin-top: 10px; }
+  .totals div { display:flex; justify-content:space-between; padding: 3px 0; font-size: 14px; }
+  .grand { font-size: 19px; font-weight: 800; color: #059669; border-top: 1px solid #cbd5e1; margin-top: 8px; padding-top: 8px; }
+  .less { color: #dc2626; }
+  .final2 { font-size: 19px; font-weight: 800; color: #0f766e; }
+  .pay { margin-top: 14px; background:#eff6ff; border-radius:10px; padding:12px 16px; }
+  .pay div { display:flex; justify-content:space-between; font-size:14px; padding:2px 0; }
+  .history-totals { background: #f1f5f9; border-radius: 10px; padding: 12px 16px; margin-top: 8px; font-weight: 700; }
+  .history-totals div { display:flex; justify-content:space-between; font-size: 14px; }
+  @media print { body { margin: 0; padding: 12px; } }
+</style>
+</head>
+<body>
+  <h1>${tabName} — Order Summary</h1>
+  <p class="sub">📅 ${dateLabel}</p>
+
+  <div class="section-title">Main Order</div>
+  <table><thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+  <tbody>${rowsHtml(rows) || '<tr><td colspan="3" style="color:#94a3b8">No items</td></tr>'}</tbody></table>
+
+  ${extraActive.length ? `
+  <div class="section-title">Extra Milk</div>
+  <table><thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+  <tbody>${rowsHtml(extra)}</tbody></table>` : ''}
+
+  <div class="totals">
+    <div><span>Total milk</span><strong>${fmtN(allMilkL)} L</strong></div>
+    <div><span>Total dahi</span><strong>${fmtN(allDahiKg)} kg</strong></div>
+    <div><span>Total discount</span><strong>-${fmt(finalDisc)}</strong></div>
+    <div class="grand"><span>Final Total Amount</span><span>${fmt(finalNet)}</span></div>
+    ${lessAmt > 0 ? `
+    <div class="less"><span>Less Amount</span><span>-${fmt(lessAmt)}</span></div>
+    <div class="final2"><span>Final Total Amount</span><span>${fmt(finalAfterLess)}</span></div>` : ''}
+  </div>
+
+  <div class="pay">
+    <div><span>💳 Online</span><strong>${fmt(payOnline)}</strong></div>
+    <div><span>💵 Offline</span><strong>${fmt(payOffline)}</strong></div>
+  </div>
+
+  ${historyDays.length ? `
+  <div class="section-title">All Saved History (${historyDays.length} ${historyDays.length === 1 ? 'day' : 'days'})</div>
+  <table><thead><tr><th>Date</th><th style="text-align:center">Milk</th><th style="text-align:center">Dahi</th><th style="text-align:right">Net</th></tr></thead>
+  <tbody>${historyRowsHtml}</tbody></table>` : ''
+    }
+
+  <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:24px;">Generated by Sudha Bill Calculator</p>
+  <script>window.onload = () => { /* user can press Ctrl/Cmd+P to save as PDF */ }</script>
+</body></html>`
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TABLE HEADER
@@ -207,11 +347,12 @@ const deleteRangeForTab = (tabKey, dateFrom, dateTo) => {
 const THead = ({ showDel }) => (
   <thead>
     <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-      <th className="px-3 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 130 }}>Product</th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 68 }}>₹ / kg</th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 62 }}>Morning</th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 62 }}>Evening</th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 56 }}> Total Kg </th>
+      <th className="px-3 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 120 }}>Product</th>
+      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 40 }}>₹ / kg</th>
+      {/* <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 62 }}>Morning</th> */}
+      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 65 }}>Total Kg</th>
+      {/* <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 62 }}>Evening</th> */}
+      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 50 }}> Total Kg </th>
       <th className="px-1 py-2 text-center text-xm font-semibold text-emerald-600 dark:text-emerald-400 uppercase" style={{ width: 80 }}>Total ₹</th>
       <th className="px-1 py-2 text-center text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 60 }}>Disc ₹</th>
 
@@ -244,7 +385,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
             onChange={e => onUpdate(idx, 'name', e.target.value)} />
           : <div>
             <span className="text-slate-800 dark:text-slate-100 text-[15px] leading-tight ">{row.name}</span>
-            {isDahi && <span className="block text-[10px] text-slate-400">enter kg (even)</span>}
+            {/* {isDahi && <span className="block text-[10px] text-slate-400">enter kg (even)</span>} */}
           </div>}
       </td>
 
@@ -256,7 +397,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
           : <span className="text-slate-500 dark:text-slate-400 text-[12px]">₹{row.price}</span>}
       </td>
 
-      {/* Morning input */}
+      {/* Morning input or Total Milk */}
       <td className={cell}>
         {editMode
           ? <input
@@ -268,7 +409,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
       </td>
 
       {/* Evening input */}
-      <td className={cell}>
+      {/* <td className={cell}>
         {editMode
           ? <input
             type="text" min="0" step={isDahi ? 2 : 1}
@@ -276,7 +417,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
             value={row.eve || ''} placeholder="0"
             onChange={e => onUpdate(idx, 'eve', e.target.value)} />
           : <span className="text-slate-600 dark:text-slate-300 text-[16px]">{row.eve || '-'}</span>}
-      </td>
+      </td> */}
 
       {/* Kg / L display  + warning */}
       <td className={cell}>
@@ -300,7 +441,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
       <td className={cell}>
         {modifyMode
           ? <input
-            type="number"
+            type="text"
             min="0"
             step="0.1"
             className={`${inp} focus:bg-orange-50 dark:focus:bg-orange-900/20 rounded border border-orange-200 dark:border-orange-800 w-14`}
@@ -339,7 +480,6 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
   const [rangeFrom, setRangeFrom] = useState('')
   const [rangeTo, setRangeTo] = useState('')
   const [confirmAll, setConfirmAll] = useState(false)  // confirm "delete all" step
-  const [confirmKey, setConfirmKey] = useState(null)
 
   const reload = () => setHistory(loadHistory())
   useEffect(() => { if (open) reload() }, [open])
@@ -349,14 +489,6 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
     .filter(([k]) => k.startsWith(tabKey + '_'))
     .sort((a, b) => b[0].localeCompare(a[0]))
 
-  // ── Delete single entry ──
-  const handleDelete = key => {
-    const h = loadHistory()
-    delete h[key]
-    saveHistory(h)
-    setConfirmKey(null)
-    reload()
-  }
 
   // ── Delete all entries for this tab ──
   const handleDeleteAll = () => {
@@ -378,7 +510,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
   // ── Collapsed ──
   if (!open) return (
     <button onClick={() => setOpen(true)}
-      className="text-xl font-semibold text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 transition-colors px-4 py-2.5 border-t border-slate-100 dark:border-slate-700 w-full text-left">
+      className="text-xl font-bold text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 transition-colors px-4 py-4 pt-6 border-t border-slate-100 dark:border-slate-700 w-full text-left">
       📅 View saved history ({count} {count === 1 ? 'day' : 'days'})
     </button>
   )
@@ -388,18 +520,18 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
     <div className="border-t border-slate-100 dark:border-slate-700">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800">
+      <div className="flex items-center justify-between px-4 py-3 pt-5 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800">
         <span className="text-[12px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
           Saved History ({count} {count === 1 ? 'day' : 'days'})
         </span>
         <div className="flex items-center gap-2">
           {/* Toggle delete controls */}
           <button onClick={() => { setShowDel(v => !v); setConfirmAll(false) }}
-            className="text-xs text-red-400 hover:text-red-600 transition-colors px-2 py-0.5 rounded border border-red-200 dark:border-red-800">
-            {showDel ? 'Cancel' : '🗑 Delete'}
+            className="text-xs text-red-400 hover:text-red-600 transition-colors px-1 py-1 rounded border border-red-200 dark:border-red-800">
+            {showDel ? 'Cancel' : 'Delete'}
           </button>
           <button onClick={() => setOpen(false)}
-            className=" ml-2 text-[14px] text-indigo-400 hover:text-indigo-600">✕ Close</button>
+            className=" ml-2 text-[1px] text-indigo-400 hover:text-indigo-600">✕ Close</button>
         </div>
       </div>
 
@@ -452,13 +584,13 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
       <div className="divide-y divide-slate-100 dark:divide-slate-700 max-h-80 overflow-y-auto">
         {tabHistory.map(([key, data]) => {
           const dateStr = key.replace(tabKey + '_', '')
-          const mt = calcTotals(data.rows || [], data.discMilk, data.discDahi)
-          const et = calcTotals(data.extra || [], data.discMilk, data.discDahi)
+          const mt = calcTotals(data.rows || [])
+          const et = calcTotals(data.extra || [])
           return (
             <div key={key} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/30">
               <div>
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{fmtDateLabel(dateStr)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xm font-semibold text-slate-700 dark:text-slate-200">{fmtDateLabel(dateStr)}</p>
+                <p className="text-xm text-slate-400 mt-0.5">
                   Milk: {fmtN(mt.milkKg + et.milkKg)} L &nbsp;·&nbsp;
                   Dahi: {fmtN(mt.dahiKg + et.dahiKg)} kg &nbsp;·&nbsp;
                   <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{fmt(mt.net + et.net)}</span>
@@ -466,29 +598,9 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => { onLoad(data); setOpen(false) }}
-                  className="text-xl px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 transition-colors">
+                  className="text-xl px-10 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 transition-colors">
                   View
                 </button>
-
-                {confirmKey !== key
-                  ? <button
-                    onClick={() => setConfirmKey(key)}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors">
-                    Delete
-                  </button>
-                  : <>
-                    <span className="text-xs text-red-600 dark:text-red-400 font-semibold">Sure?</span>
-                    <button
-                      onClick={() => handleDelete(key)}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
-                      Yes
-                    </button>
-                    <button
-                      onClick={() => setConfirmKey(null)}
-                      className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors">
-                      No
-                    </button>
-                  </>}
               </div>
             </div>
           )
@@ -517,6 +629,8 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
   const [showExtraTable, setShowExtraTable] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
   const [selectedDate, setSelectedDate] = useState(todayStr())
+  const [showShareMenu, setShowShareMenu] = useState(false)
+  const [shareToast, setShareToast] = useState('')
 
   const st = tabData[tabKey]
   const upd = patch => setTabData(prev => ({ ...prev, [tabKey]: { ...prev[tabKey], ...patch } }))
@@ -533,10 +647,10 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
   }
 
   // ── Aggregated numbers ── Totals  ─────────────────────────────────────────────────────
-  const mainTotals = calcTotals(st.rows, st.discMilk, st.discDahi)
-  const extraTotals = calcTotals(st.extra, st.discMilk, st.discDahi)
+  const mainTotals = calcTotals(st.rows)
+  const extraTotals = calcTotals(st.extra)
 
-  const extraActive = st.extra.filter(r => calcRow(r, st.discMilk, st.discDahi).qty > 0)
+  const extraActive = st.extra.filter(r => calcRow(r).qty > 0)
   const hasExtraSummary = !showExtraTable && extraActive.length > 0
 
   const allMilkL = mainTotals.milkKg + extraTotals.milkKg
@@ -544,18 +658,127 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
   const finalNet = mainTotals.net + extraTotals.net
   const finalDisc = mainTotals.disc + extraTotals.disc
 
+  // ── Less Amount + Final Total After Less ──────────────────────────────────
+  const lessAmt = Number(st.lessAmt) || 0
+  const finalAfterLess = Math.max(0, finalNet - lessAmt)
+
+  // ── Payment mode (Online / Offline) ─────────────────────────────────────────
+  // 'auto' mode: offline = finalAfterLess - online, kept in sync as online changes
+  // 'manual' mode: both typed independently by user (no auto sync)
+  const payOnline = Number(st.payOnline) || 0
+  const payOffline = st.payMode === 'manual'
+    ? (Number(st.payOffline) || 0)
+    : Math.max(0, finalAfterLess - payOnline)
+
+  const handleOnlineChange = (val) => {
+    const online = parseFloat(val) || 0
+    upd({ payOnline: online, payMode: 'auto', payOffline: Math.max(0, finalAfterLess - online) })
+  }
+  const handleOfflineChange = (val) => {
+    const offline = parseFloat(val) || 0
+    upd({ payOffline: offline, payMode: 'manual' })
+  }
+  const handleLessAmtChange = (val) => {
+    const v = parseFloat(val) || 0
+    upd({ lessAmt: v })
+    try { localStorage.setItem(LAST_LESS_KEY, String(v)) } catch { }
+  }
+
   // ── Save / Load ────────────────────────────────────────────────────────────
   const handleSave = () => {
     const h = loadHistory(), key = tabKey + '_' + selectedDate
     const keys = Object.keys(h).filter(k => k.startsWith(tabKey + '_')).sort()
     // if (keys.length >= 30 && !keys.includes(key)) delete h[keys[0]]
     // No entry cap — history is kept for lifetime
-    h[key] = { rows: st.rows, extra: st.extra }
+    h[key] = {
+      rows: st.rows, extra: st.extra,
+      lessAmt: st.lessAmt, payOnline: st.payOnline, payOffline: st.payOffline, payMode: st.payMode,
+    }
     saveHistory(h)
     setSaveMsg('✓ Saved!')
     setTimeout(() => setSaveMsg(''), 2500)
   }
-  const handleLoad = data => upd({ rows: data.rows, extra: data.extra })
+  const handleLoad = data => upd({
+    rows: data.rows, extra: data.extra,
+    lessAmt: data.lessAmt || 0, payOnline: data.payOnline || 0, payOffline: data.payOffline || 0,
+    payMode: data.payMode || 'auto',
+  })
+
+  // ── Share / Summary helpers ─────────────────────────────────────────────────
+  // const summaryArgs = () => ({
+  //   tabName, dateLabel: fmtDateLabel(selectedDate),
+  //   rows: st.rows, extra: st.extra,
+  //   allMilkL, allDahiKg, finalDisc, finalNet,
+  //   lessAmt, finalAfterLess, payOnline, payOffline,
+  // })
+
+  // ── Share / Summary helpers ─────────────────────────────────────────────────
+  const summaryArgs = () => {
+    // Pull every saved day for this tab from localStorage
+    const h = loadHistory()
+    const historyDays = Object.entries(h)
+      .filter(([k]) => k.startsWith(tabKey + '_'))
+      .map(([k, data]) => {
+        const dateStr = k.replace(tabKey + '_', '')
+        const mt = calcTotals(data.rows || [])
+        const et = calcTotals(data.extra || [])
+        return {
+          dateStr,
+          dateLabel: fmtDateLabel(dateStr),
+          milkL: mt.milkKg + et.milkKg,
+          dahiKg: mt.dahiKg + et.dahiKg,
+          net: mt.net + et.net,
+          lessAmt: data.lessAmt || 0,
+          payOnline: data.payOnline || 0,
+          payOffline: data.payOffline || 0,
+        }
+      })
+      .sort((a, b) => b.dateStr.localeCompare(a.dateStr))
+
+    const historyTotals = historyDays.reduce((acc, d) => ({
+      milkL: acc.milkL + d.milkL,
+      dahiKg: acc.dahiKg + d.dahiKg,
+      net: acc.net + d.net,
+    }), { milkL: 0, dahiKg: 0, net: 0 })
+
+    return {
+      tabName, dateLabel: fmtDateLabel(selectedDate),
+      rows: st.rows, extra: st.extra,
+      allMilkL, allDahiKg, finalDisc, finalNet,
+      lessAmt, finalAfterLess, payOnline, payOffline,
+      historyDays, historyTotals,
+    }
+  }
+
+  const handleOpenSummaryPage = () => {
+    const html = buildSummaryHTML(summaryArgs())
+    const win = window.open('', '_blank')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+    } else {
+      setShareToast('Please allow pop-ups to view the summary page')
+      setTimeout(() => setShareToast(''), 3000)
+    }
+    setShowShareMenu(false)
+  }
+
+  const handleShareText = async () => {
+    const text = buildSummaryText(summaryArgs())
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${tabName} — Order Summary`, text })
+        setShareToast('Shared!')
+      } else {
+        await navigator.clipboard.writeText(text)
+        setShareToast('Copied summary to clipboard!')
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') setShareToast('Share failed')
+    }
+    setTimeout(() => setShareToast(''), 2800)
+    setShowShareMenu(false)
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TABLE RENDERER  (reused for main rows and extra rows)
@@ -573,7 +796,6 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
               <ProductRow
                 key={r.id} row={r} idx={i} total={rows.length}
                 modifyMode={modifyMode} editMode={editMode}
-                discMilk={st.discMilk} discDahi={st.discDahi}
                 onUpdate={(idx, f, v) => setRows(updRow(rows, idx, f, v))}
                 onDelete={idx => setRows(delRow(rows, idx))}
                 onMoveUp={idx => setRows(moveRow(rows, idx, -1))}
@@ -608,6 +830,8 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
       </div>
     )
   }
+
+  const [isOnline, setIsOnline] = useState(false)    // toggle online or not controls
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -690,6 +914,16 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
         </div>
       )}
 
+      {/* If no extra milk rows are active, still show the plain Final Total Amount banner
+          so the Less Amount / Payment sections below always have a clear total above them. */}
+      {extraActive.length === 0 && (
+        <div className="flex items-center justify-between px-4 py-4 bg-emerald-50 dark:bg-emerald-900/20 border-t border-emerald-200 dark:border-emerald-800">
+          <span className="text-[18px] text-emerald-700 dark:text-emerald-300 font-semibold">Final Total Amount</span>
+          <span className="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{fmt(finalNet)}</span>
+        </div>
+      )}
+
+
       {/* ── Extra milk toggle ── */}
       <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-700">
         <button onClick={() => setShowExtraTable(p => !p)}
@@ -708,13 +942,36 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
         </div>
       )}
 
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          LESS AMOUNT  →  FINAL TOTAL AMOUNT (after less)
+          ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-rose-50/40 dark:bg-rose-900/10">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <label className="text-[16px] font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+            ➖ Less Amount
+          </label>
+          <input
+            type="text" min="0" step="0.5" placeholder="0"
+            value={st.lessAmt || ''}
+            onChange={e => handleLessAmtChange(e.target.value)}
+            className="w-28 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-rose-400"
+          />
+        </div>
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-rose-100 dark:border-rose-900/30">
+          <span className="text-[18px] font-bold text-teal-700 dark:text-teal-300">Final Total Amount</span>
+          <span className="text-2xl font-bold font-mono text-teal-600 dark:text-teal-400">{fmt(finalAfterLess)}</span>
+        </div>
+      </div>
+
+
       {/* ── Summary chips: Milk L | Dahi kg | Discount | Grand total ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-4 py-3 border-t border-slate-100 dark:border-slate-700">
         {[
           { label: 'Total milk', value: `${fmtN(allMilkL)} L`, cls: 'text-blue-600 dark:text-blue-400' },
           { label: 'Total dahi', value: `${fmtN(allDahiKg)} kg`, cls: 'text-amber-600 dark:text-amber-400' },
           { label: 'Total discount', value: `-${fmt(finalDisc)}`, cls: 'text-red-500 dark:text-red-400' },
-          { label: 'Grand total', value: fmt(finalNet), cls: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'Grand total', value: fmt(finalAfterLess), cls: 'text-emerald-600 dark:text-emerald-400' },
         ].map(({ label, value, cls }) => (
           <div key={label} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
             <p className="text-[17px] text-slate-500 dark:text-slate-400">{label}</p>
@@ -723,8 +980,54 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
         ))}
       </div>
 
-      {/* ── Save bar ── */}
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/20 flex-wrap">
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          PAYMENT MODE  —  Online / Offline split
+          ═══════════════════════════════════════════════════════════════════════ */}
+      <button onClick={() => setIsOnline(p => !p)}
+        className="px-10 py-3 mb-4  rounded-xl text-xm font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
+
+        {!isOnline ? 'Online Payment' : 'Payment Mode Hide'}
+      </button>
+
+      {isOnline && (
+        <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-blue-50/40 dark:bg-blue-900/10">
+          <p className="text-[15px] font-semibold text-blue-700 dark:text-blue-300 mb-2">💳 Payment Mode</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Online</label>
+              <input
+                type="text" min="0" step="0.5" placeholder="0"
+                value={st.payOnline || ''}
+                onChange={e => handleOnlineChange(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
+                Offline {st.payMode !== 'manual' && <span className="text-[10px] text-slate-400">(auto)</span>}
+              </label>
+              <input
+                type="text" min="0" step="0.5" placeholder="0"
+                value={st.payMode === 'manual' ? (st.payOffline || '') : (payOffline || '')}
+                onChange={e => handleOfflineChange(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>Online {fmt(payOnline)} + Offline {fmt(payOffline)} = <strong className="text-slate-700 dark:text-slate-200">{fmt(payOnline + payOffline)}</strong></span>
+            {st.payMode === 'manual' && (
+              <button onClick={() => upd({ payMode: 'auto', payOffline: Math.max(0, finalAfterLess - payOnline) })}
+                className="text-[11px] text-blue-500 hover:text-blue-700 underline">reset to auto</button>
+            )}
+          </div>
+        </div>)
+      }
+
+
+      {/* ── Save + Share bar ── */}
+      <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/20 flex-wrap relative">
         <span className="text-xl text-slate-500 dark:text-slate-400 font-medium">Save for:</span>
         <input type="date" value={selectedDate}
           onChange={e => setSelectedDate(e.target.value)}
@@ -734,7 +1037,28 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
           className="px-4 py-1.5 rounded-xl text-xl font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
           💾 Save
         </button>
-        {saveMsg && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{saveMsg}</span>}
+        {saveMsg && <span className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">{saveMsg}</span>}
+
+        {/* Share button + dropdown menu with both options */}
+        <div className="relative ml-auto">
+          <button onClick={() => setShowShareMenu(v => !v)}
+            className="px-4 py-1.5 rounded-xl text-xl font-semibold bg-indigo-500 hover:bg-indigo-600 text-white transition-colors">
+            📤 Share
+          </button>
+          {showShareMenu && (
+            <div className="absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg overflow-hidden z-20">
+              <button onClick={handleOpenSummaryPage}
+                className="w-full text-left px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                🧾 Open Summary Page <span className="text-[11px] text-slate-400">(Print / Save as PDF)</span>
+              </button>
+              <button onClick={handleShareText}
+                className="w-full text-left px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+                💬 Share as Text
+              </button>
+            </div>
+          )}
+        </div>
+        {shareToast && <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 w-full">{shareToast}</span>}
       </div>
 
       {/* ── History panel ── */}
