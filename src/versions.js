@@ -26,11 +26,18 @@ export const CURRENT_VERSION_ID = 'v3'
 
 export const APP_VERSIONS = [
   // ── CURRENT / LATEST version — always first ─────────────────────────────
+   {
+    id:          'v4',
+    label:       'v4 — Latest',
+    url:         '/',           // your live domain root, e.g. https://sudha.vercel.app/
+    description: 'Version picker, Milk/Dahi split totals, history panel, Less Amount, payment mode',
+    isLatest:    true,
+  },
+
   {
     id:          'v3',
-    label:       'v3 — Latest',
-    url:         '/',           // your live domain root, e.g. https://sudha.vercel.app/
-    date:        '2025-07',
+    label:       'v3',
+    url:         'https://sudha-bill-calculator-61v1rql7u-ashish2024-28s-projects.vercel.app/',          
     description: 'Version picker, Milk/Dahi split totals, history panel, Less Amount, payment mode',
     isLatest:    true,
   },
@@ -42,15 +49,13 @@ export const APP_VERSIONS = [
     id:          'v2',
     label:       'v2 — Stable',
     url:         'https://sudha-bill-calculator-163gu9vx5-ashish2024-28s-projects.vercel.app/',
-    date:        '2025-06',
     description: 'Edit orders mode, extra milk toggle, discount fix',
     isLatest:    false,
   },
   {
     id:          'v1',
     label:       'v1 — Original',
-    url:         '',
-    date:        '2025-05',
+    url:         'https://sudha-bill-calculator-k0iwlki2s-ashish2024-28s-projects.vercel.app/',
     description: 'First release — basic Patan / Arra dairy tables',
     isLatest:    false,
   },

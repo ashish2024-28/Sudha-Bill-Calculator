@@ -1,4 +1,5 @@
 const SETTINGS_KEY = 'sudha_bill_calculator_settings'
+const HISTORY_KEY = 'dairy_history_v4'
 
 export const storageService = {
   getProducts(key = 'sudha_bill_patandairy_products') {
@@ -88,5 +89,85 @@ export const storageService = {
       reader.onerror = () => reject(new Error('Failed to read file'))
       reader.readAsText(file)
     })
+  },
+
+// add these inside storageService object, after importFromJSON:
+
+  getHistory() {
+    try {
+      const data = localStorage.getItem(HISTORY_KEY)
+      return data ? JSON.parse(data) : {}
+    } catch (error) {
+      console.error('Failed to load history:', error)
+      return {}
+    }
+  },
+
+  saveHistory(history) {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+      return true
+    } catch (error) {
+      console.error('Failed to save history:', error)
+      return false
+    }
+  },
+
+  deleteHistoryEntry(tabKey, dateStr) {
+    try {
+      const h = this.getHistory()
+      delete h[tabKey + '_' + dateStr]
+      this.saveHistory(h)
+      return true
+    } catch (error) {
+      console.error('Failed to delete history entry:', error)
+      return false
+    }
+  },
+
+  deleteAllHistoryForTab(tabKey) {
+    try {
+      const h = this.getHistory()
+      Object.keys(h).filter(k => k.startsWith(tabKey + '_')).forEach(k => delete h[k])
+      this.saveHistory(h)
+      return true
+    } catch (error) {
+      console.error('Failed to delete all history:', error)
+      return false
+    }
+  },
+
+  deleteHistoryRange(tabKey, dateFrom, dateTo) {
+    try {
+      const h = this.getHistory()
+      Object.keys(h)
+        .filter(k => k.startsWith(tabKey + '_'))
+        .forEach(k => {
+          const date = k.replace(tabKey + '_', '')
+          if (date >= dateFrom && date <= dateTo) delete h[k]
+        })
+      this.saveHistory(h)
+      return true
+    } catch (error) {
+      console.error('Failed to delete history range:', error)
+      return false
+    }
+  },
+
+  deleteHistoryBySerial(tabKey, serialNo) {
+    try {
+      const h = this.getHistory()
+      const keys = Object.keys(h)
+        .filter(k => k.startsWith(tabKey + '_'))
+        .sort((a, b) => b.localeCompare(a))  // newest first
+      const idx = serialNo - 1
+      if (idx < 0 || idx >= keys.length) return false
+      delete h[keys[idx]]
+      this.saveHistory(h)
+      return true
+    } catch (error) {
+      console.error('Failed to delete history by serial:', error)
+      return false
+    }
   }
 }
