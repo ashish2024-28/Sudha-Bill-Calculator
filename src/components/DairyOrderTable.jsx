@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { storageService } from '../services/storageService'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRODUCT CATALOGUE  &  CALCULATION RULES
@@ -197,30 +198,25 @@ const deleteAllForTab = (tabKey) => {
   saveHistory(h)
 }
 
-// ── Helper: delete entries in a date range for one tab ──
-// dateFrom / dateTo are 'YYYY-MM-DD' strings (inclusive both ends)
-const deleteRangeForTab = (tabKey, dateFrom, dateTo) => {
-  const h = loadHistory()
-  Object.keys(h)
-    .filter(k => k.startsWith(tabKey + '_'))
-    .forEach(k => {
-      const date = k.replace(tabKey + '_', '')
-      if (date >= dateFrom && date <= dateTo) delete h[k]
-    })
-  saveHistory(h)
-}
-
-// ── Helper: delete a single entry by 1-based serial number (newest-first) ──
-const deleteBySerialForTab = (tabKey, serialNo) => {
+// ── Helper: delete entries by 1-based serial number range (newest-first) ──
+const deleteBySerialRangeForTab = (tabKey, startSn, endSn) => {
   const h = loadHistory()
   const keys = Object.keys(h)
     .filter(k => k.startsWith(tabKey + '_'))
-    .sort((a, b) => b.localeCompare(a))   // newest first
-  const idx = serialNo - 1
-  if (idx < 0 || idx >= keys.length) return false
-  delete h[keys[idx]]
+    .sort((a, b) => b.localeCompare(a))   // newest first (S.No 1 is index 0)
+  
+  const startIdx = Math.max(0, startSn - 1)
+  const endIdx = Math.min(keys.length - 1, endSn - 1)
+  
+  let deletedCount = 0
+  for (let i = startIdx; i <= endIdx; i++) {
+    if (keys[i]) {
+      delete h[keys[i]]
+      deletedCount++
+    }
+  }
   saveHistory(h)
-  return true
+  return deletedCount
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -228,11 +224,11 @@ const deleteBySerialForTab = (tabKey, serialNo) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Builds a plain-text summary (for clipboard / Web Share API text body)
-const buildSummaryText = ({ tabName, dateLabel, rows, extra, allMilkL, allDahiKg, finalDisc,
+const buildSummaryText = ({ tabName, dateLabel, supplyDateLabel, rows, extra, allMilkL, allDahiKg, finalDisc,
   finalNet, lessAmt, finalAfterLess, payOnline, payOffline, historyDays = [], historyTotals }) => {
   const lines = []
   lines.push(`📋 ${tabName} — Order Summary`)
-  lines.push(`📅 ${dateLabel}`)
+  lines.push(`📅 Order Date: ${dateLabel}  |  🚚 Supply Date: ${supplyDateLabel}`)
   lines.push('')
   lines.push('── Main Order ──')
   rows.filter(r => calcRow(r).qty > 0).forEach(r => {
@@ -275,7 +271,7 @@ const buildSummaryText = ({ tabName, dateLabel, rows, extra, allMilkL, allDahiKg
 }
 
 // Builds a full printable HTML page (for the Summary tab / "Save as PDF")
-const buildSummaryHTML = ({ tabName, dateLabel, rows, extra, allMilkL, allDahiKg, finalDisc,
+const buildSummaryHTML = ({ tabName, dateLabel, supplyDateLabel, rows, extra, allMilkL, allDahiKg, finalDisc,
   finalNet, lessAmt, finalAfterLess, payOnline, payOffline, historyDays = [], historyTotals }) => {
 
   const rowsHtml = (list) => list.filter(r => calcRow(r).qty > 0).map(r => {
@@ -322,7 +318,7 @@ const buildSummaryHTML = ({ tabName, dateLabel, rows, extra, allMilkL, allDahiKg
 </head>
 <body>
   <h1>${tabName} — Order Summary</h1>
-  <p class="sub">📅 ${dateLabel}</p>
+  <p class="sub">📅 Order Date: ${dateLabel} &nbsp;•&nbsp; 🚚 Supply Date: ${supplyDateLabel}</p>
 
   <div class="section-title">Main Order</div>
   <table><thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
@@ -368,9 +364,7 @@ const THead = ({ showDel }) => (
     <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
       <th className="px-3 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 120 }}>Product</th>
       <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 40 }}>₹ / kg</th>
-      {/* <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 62 }}>Morning</th> */}
       <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 65 }}>Total Kg</th>
-      {/* <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 62 }}>Evening</th> */}
       <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 50 }}> Total Kg </th>
       <th className="px-1 py-2 text-center text-xm font-semibold text-emerald-600 dark:text-emerald-400 uppercase" style={{ width: 80 }}>Total ₹</th>
       <th className="px-1 py-2 text-center text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 60 }}>Disc ₹</th>
@@ -384,7 +378,7 @@ const THead = ({ showDel }) => (
 // PRODUCT ROW
 // ═══════════════════════════════════════════════════════════════════════════════
 const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete, onMoveUp, onMoveDown }) => {
-  const { qty, actualKg, net, kgLabel, discAmt } = calcRow(row)
+  const { qty, net, kgLabel } = calcRow(row)
 
   const isDahi = row.id === 'dahi400'
   // ── Dahi: warn if odd number entered ──
@@ -404,7 +398,6 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
             onChange={e => onUpdate(idx, 'name', e.target.value)} />
           : <div>
             <span className="text-slate-800 dark:text-slate-100 text-[15px] leading-tight ">{row.name}</span>
-            {/* {isDahi && <span className="block text-[10px] text-slate-400">enter kg (even)</span>} */}
           </div>}
       </td>
 
@@ -496,52 +489,108 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
   const [history, setHistory] = useState({})
   const [open, setOpen] = useState(false)
   const [showDel, setShowDel] = useState(false)
-  const [rangeFrom, setRangeFrom] = useState('')
-  const [rangeTo, setRangeTo] = useState('')
   const [confirmAll, setConfirmAll] = useState(false)
 
-  // S.No delete state
-  const [snInput, setSnInput] = useState('')
+  // S.No delete controls
+  const [keepTopInput, setKeepTopInput] = useState('') // e.g., "10" -> deletes S.No 11 to count
+  const [rangeFromSn, setRangeFromSn] = useState('')   // e.g., "11"
+  const [rangeToSn, setRangeToSn] = useState('')     // e.g., "100"
+  
   const [snError, setSnError] = useState('')
-  const [snConfirm, setSnConfirm] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null) // { startSn, endSn, type, keepN, items }
 
   const reload = () => setHistory(loadHistory())
   useEffect(() => { if (open) reload() }, [open])
 
   const tabHistory = Object.entries(history)
     .filter(([k]) => k.startsWith(tabKey + '_'))
-    .sort((a, b) => b[0].localeCompare(a[0]))  // newest first
+    .sort((a, b) => b[0].localeCompare(a[0]))  // newest first (S.No 1, 2, ...)
 
   const count = tabHistory.length
+
+  // Preview deletion for "Keep Top X" (e.g. enter 10 -> deletes 11 to count)
+  const handlePreviewKeepTop = () => {
+    const keepN = parseInt(keepTopInput, 10)
+    if (isNaN(keepN) || keepN < 1) {
+      setSnError('Please enter a valid S.No number (≥ 1)')
+      return
+    }
+    if (keepN >= count) {
+      setSnError(`Only ${count} ${count === 1 ? 'entry' : 'entries'} exist. Enter a number less than ${count}.`)
+      return
+    }
+    const startSn = keepN + 1
+    const endSn = count
+    const itemsToDelete = tabHistory.slice(keepN).map(([key, data], idx) => ({
+      serialNo: keepN + 1 + idx,
+      key,
+      dateStr: key.replace(tabKey + '_', ''),
+      data
+    }))
+
+    setSnError('')
+    setPendingDelete({
+      startSn,
+      endSn,
+      type: 'keepTop',
+      keepN,
+      items: itemsToDelete
+    })
+  }
+
+  // Preview deletion for specific S.No Range (e.g. From 11 To 100 or End)
+  const handlePreviewRange = () => {
+    const start = parseInt(rangeFromSn, 10)
+    if (isNaN(start) || start < 1) {
+      setSnError('Start S.No must be at least 1')
+      return
+    }
+    if (start > count) {
+      setSnError(`Start S.No (${start}) exceeds total entries (${count})`)
+      return
+    }
+    let end = parseInt(rangeToSn, 10)
+    if (isNaN(end) || !rangeToSn) {
+      end = count // default to End (total count)
+    }
+    if (end < start) {
+      setSnError('End S.No must be greater than or equal to Start S.No')
+      return
+    }
+    const endClamped = Math.min(count, end)
+    const itemsToDelete = tabHistory.slice(start - 1, endClamped).map(([key, data], idx) => ({
+      serialNo: start + idx,
+      key,
+      dateStr: key.replace(tabKey + '_', ''),
+      data
+    }))
+
+    setSnError('')
+    setPendingDelete({
+      startSn: start,
+      endSn: endClamped,
+      type: 'range',
+      items: itemsToDelete
+    })
+  }
+
+  const handleExecuteDelete = () => {
+    if (!pendingDelete) return
+    const { startSn, endSn } = pendingDelete
+    deleteBySerialRangeForTab(tabKey, startSn, endSn)
+    
+    setPendingDelete(null)
+    setKeepTopInput('')
+    setRangeFromSn('')
+    setRangeToSn('')
+    setSnError('')
+    reload()
+  }
 
   const handleDeleteAll = () => {
     deleteAllForTab(tabKey)
     setConfirmAll(false)
-    reload()
-  }
-
-  const handleDeleteRange = () => {
-    if (!rangeFrom || !rangeTo) return
-    deleteRangeForTab(tabKey, rangeFrom, rangeTo)
-    setRangeFrom(''); setRangeTo('')
-    reload()
-  }
-
-  // Step 1: validate S.No and ask confirmation
-  const handleSnDelete = () => {
-    const n = parseInt(snInput, 10)
-    if (isNaN(n) || n < 1) { setSnError('Enter a valid S.No (number ≥ 1)'); return }
-    if (n > count) { setSnError(`Only ${count} ${count === 1 ? 'entry' : 'entries'} exist`); return }
-    setSnError('')
-    setSnConfirm(n)
-  }
-
-  // Step 2: confirmed — delete and renumber
-  const handleSnConfirmed = () => {
-    deleteBySerialForTab(tabKey, snConfirm)
-    setSnInput('')
-    setSnConfirm(null)
-    setSnError('')
+    setPendingDelete(null)
     reload()
   }
 
@@ -562,89 +611,192 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
           Saved History ({count} {count === 1 ? 'day' : 'days'})
         </span>
         <div className="flex items-center gap-2">
-          <button onClick={() => { setShowDel(v => !v); setConfirmAll(false); setSnConfirm(null); setSnError('') }}
-            className="text-xs text-red-400 hover:text-red-600 transition-colors px-1 py-1 rounded border border-red-200 dark:border-red-800">
-            {showDel ? 'Cancel' : 'Delete'}
-          </button>
+          {count > 0 && (
+            <button onClick={() => { setShowDel(v => !v); setConfirmAll(false); setPendingDelete(null); setSnError('') }}
+              className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 transition-colors px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-800 bg-white dark:bg-slate-800 font-semibold shadow-xs">
+              {showDel ? 'Cancel Delete' : '🗑️ Delete S.No'}
+            </button>
+          )}
           <button onClick={() => setOpen(false)}
-            className="ml-2 text-[10px] text-indigo-400 hover:text-indigo-600">✕ Close</button>
+            className="ml-2 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-semibold">✕ Close</button>
         </div>
       </div>
 
-      {/* Delete controls */}
-      {showDel && (
-        <div className="px-4 py-3 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/30 space-y-4">
+      {/* Delete Controls Panel */}
+      {showDel && count > 0 && (
+        <div className="px-4 py-3.5 bg-red-50/70 dark:bg-red-950/20 border-b border-red-100 dark:border-red-900/40 space-y-4">
 
-          {/* Delete by S.No */}
-          <div>
-            <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1.5">Delete by S.No</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="number" min="1" max={count} placeholder="S.No"
-                value={snInput}
-                onChange={e => { setSnInput(e.target.value); setSnError(''); setSnConfirm(null) }}
-                className="w-20 px-2 py-1 border border-red-200 dark:border-red-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-red-400 font-mono"
-              />
-              {snConfirm === null ? (
-                <button onClick={handleSnDelete} disabled={!snInput}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors disabled:opacity-40">
-                  Delete S.No
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-red-600 dark:text-red-400 font-semibold">
-                    Delete S.No {snConfirm} ({fmtDateLabel(tabHistory[snConfirm - 1]?.[0]?.replace(tabKey + '_', '') || '')})? Cannot undo.
-                  </span>
-                  <button onClick={handleSnConfirmed}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
-                    Yes, delete
-                  </button>
-                  <button onClick={() => { setSnConfirm(null); setSnInput('') }}
-                    className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors">
-                    Cancel
-                  </button>
+          {/* Pending Delete Preview Modal / Box */}
+          {pendingDelete ? (
+            <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border-2 border-red-400 dark:border-red-700 shadow-xl space-y-3 animate-fadeIn">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h4 className="font-bold text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                    <span className="text-base">⚠️</span> 
+                    Confirm Deleting S.No {pendingDelete.startSn} to {pendingDelete.endSn}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    {pendingDelete.type === 'keepTop' 
+                      ? `This will keep the first ${pendingDelete.keepN} entries (S.No 1 to ${pendingDelete.keepN}) and delete S.No ${pendingDelete.startSn} to ${pendingDelete.endSn} (${pendingDelete.items.length} ${pendingDelete.items.length === 1 ? 'entry' : 'entries'}).`
+                      : `Are you sure you want to delete ${pendingDelete.items.length} ${pendingDelete.items.length === 1 ? 'entry' : 'entries'} (S.No ${pendingDelete.startSn} to ${pendingDelete.endSn})?`}
+                  </p>
                 </div>
-              )}
-            </div>
-            {snError && <p className="text-[11px] text-red-500 mt-1">{snError}</p>}
-            <p className="text-[10px] text-slate-400 mt-1">S.No 1 = newest. After deletion, all S.Nos renumber automatically.</p>
-          </div>
+              </div>
 
-          {/* Delete by date range */}
-          <div>
-            <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1.5">Delete by date range</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <input type="date" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
-                className="px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-red-400" />
-              <span className="text-xs text-slate-400">to</span>
-              <input type="date" value={rangeTo} onChange={e => setRangeTo(e.target.value)}
-                className="px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-red-400" />
-              <button onClick={handleDeleteRange} disabled={!rangeFrom || !rangeTo}
-                className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors disabled:opacity-40">
-                Delete range
-              </button>
-            </div>
-          </div>
+              {/* Scrollable list of items targeted for deletion */}
+              <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 p-2 space-y-1">
+                {pendingDelete.items.map((item) => {
+                  const mt = calcTotals(item.data.rows || [])
+                  const et = calcTotals(item.data.extra || [])
+                  const grossNet = mt.net + et.net
+                  const lessAmt = Number(item.data.lessAmt) || 0
+                  const finalNet = Math.max(0, grossNet - lessAmt)
 
-          {/* Delete all */}
-          <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-red-100 dark:border-red-900/30">
-            {!confirmAll
-              ? <button onClick={() => setConfirmAll(true)}
-                className="text-xs px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors">
-                Delete all {count} entries
-              </button>
-              : <>
-                <span className="text-xs text-red-600 dark:text-red-400 font-semibold">Sure? This cannot be undone.</span>
-                <button onClick={handleDeleteAll}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
-                  Yes, delete all
+                  return (
+                    <div key={item.key} className="py-2 px-2.5 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-bold text-[11px] shrink-0">
+                          S.No {item.serialNo}
+                        </span>
+                        <div className="truncate">
+                          <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                            {fmtDateLabel(item.dateStr)}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Milk: {fmtN(mt.milkKg + et.milkKg)} L &nbsp;·&nbsp; Dahi: {fmtN(mt.dahiKg + et.dahiKg)} kg &nbsp;·&nbsp; {fmt(finalNet)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-red-600 dark:text-red-400 text-xs">
+                          {fmt(finalNet)}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <button
+                  onClick={handleExecuteDelete}
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md shadow-red-500/20 transition-all flex items-center gap-1.5"
+                >
+                  🗑️ Yes, Delete S.No {pendingDelete.startSn} to {pendingDelete.endSn}
                 </button>
-                <button onClick={() => setConfirmAll(false)}
-                  className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors">
+                <button
+                  onClick={() => setPendingDelete(null)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold transition-all"
+                >
                   Cancel
                 </button>
-              </>}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Option 1: Keep Top X entries (Delete S.No X+1 to max) */}
+              <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-red-200 dark:border-red-900/40">
+                <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-1">
+                  1. Keep Top Entries (Delete After S.No X)
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                  E.g. If you enter <span className="font-mono font-bold text-slate-700 dark:text-slate-300">10</span>, entries from S.No <span className="font-bold text-red-600">11 to {count >= 11 ? count : 'End'}</span> will be deleted.
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">Keep Top:</span>
+                    <input
+                      type="number" min="1" max={count - 1} placeholder="e.g. 10"
+                      value={keepTopInput}
+                      onChange={e => { setKeepTopInput(e.target.value); setSnError('') }}
+                      className="w-20 px-2.5 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono focus:ring-1 focus:ring-red-500 outline-none"
+                    />
+                    <span className="text-xs text-slate-500">entries</span>
+                  </div>
+                  <button
+                    onClick={handlePreviewKeepTop}
+                    disabled={!keepTopInput}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-40"
+                  >
+                    Delete After S.No {keepTopInput ? parseInt(keepTopInput, 10) : 'X'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 2: Delete specific S.No Range */}
+              <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-red-200 dark:border-red-900/40">
+                <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-1">
+                  2. Delete S.No Range (or to End)
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                  Enter starting S.No and ending S.No. Leave "To" empty to delete up to the End (S.No {count}).
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">From:</span>
+                    <input
+                      type="number" min="1" max={count} placeholder="S.No"
+                      value={rangeFromSn}
+                      onChange={e => { setRangeFromSn(e.target.value); setSnError('') }}
+                      className="w-16 px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono focus:ring-1 focus:ring-red-500 outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">To:</span>
+                    <input
+                      type="number" min="1" max={count} placeholder={`End (${count})`}
+                      value={rangeToSn}
+                      onChange={e => { setRangeToSn(e.target.value); setSnError('') }}
+                      className="w-20 px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono focus:ring-1 focus:ring-red-500 outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handlePreviewRange}
+                    disabled={!rangeFromSn}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-40"
+                  >
+                    Delete Range
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 3: Delete All */}
+              <div className="flex items-center justify-between pt-1">
+                {!confirmAll ? (
+                  <button
+                    onClick={() => setConfirmAll(true)}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900 border border-red-200 dark:border-red-800 font-semibold transition-colors"
+                  >
+                    Delete All ({count} entries)
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-red-600 dark:text-red-400 font-semibold">Are you sure? All {count} history records will be deleted.</span>
+                    <button
+                      onClick={handleDeleteAll}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors"
+                    >
+                      Yes, Delete All
+                    </button>
+                    <button
+                      onClick={() => setConfirmAll(false)}
+                      className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {snError && (
+            <p className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-100/80 dark:bg-red-900/40 p-2 rounded-lg border border-red-200 dark:border-red-800">
+              ⚠️ {snError}
+            </p>
+          )}
         </div>
       )}
 
@@ -659,29 +811,36 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
           const dateStr = key.replace(tabKey + '_', '')
           const mt = calcTotals(data.rows || [])
           const et = calcTotals(data.extra || [])
+          const grossNet = mt.net + et.net
+          const lessAmt = Number(data.lessAmt) || 0
+          const finalNet = Math.max(0, grossNet - lessAmt)
           const serialNo = index + 1   // 1-based, renumbers automatically after any deletion
 
           return (
-            <div key={key} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/30">
+            <div key={key} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
 
               {/* S.No badge */}
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
-                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-300">{serialNo}</span>
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-700/50">
+                <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300">{serialNo}</span>
               </div>
 
               {/* Date + summary */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{fmtDateLabel(dateStr)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Milk: {fmtN(mt.milkKg + et.milkKg)} L &nbsp;·&nbsp;
-                  Dahi: {fmtN(mt.dahiKg + et.dahiKg)} kg &nbsp;·&nbsp;
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{fmt(mt.net + et.net)}</span>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
+                  {fmtDateLabel(dateStr)}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  <span>Milk: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{fmtN(mt.milkKg + et.milkKg)} L</strong></span>
+                  <span>·</span>
+                  <span>Dahi: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{fmtN(mt.dahiKg + et.dahiKg)} kg</strong></span>
+                  <span>·</span>
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{fmt(finalNet)}</strong>
                 </p>
               </div>
 
               {/* View button */}
               <button onClick={() => { onLoad(data, dateStr); setOpen(false) }}
-                className="flex-shrink-0 text-sm px-4 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 transition-colors font-medium">
+                className="flex-shrink-0 text-xs px-3.5 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors font-semibold">
                 View
               </button>
             </div>
@@ -700,12 +859,23 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
 //   tabKey   (string) – storage key    e.g. "patandairy"
 const DairyOrderTable = ({ tabName, tabKey }) => {
 
-  // Both tabs share one state object; active tab is selected by tabKey
-  const [tabData, setTabData] = useState({
-    patandairy: initTabState(),
-    arradairy: initTabState(),
-    otherdairy: initTabState(),
+  // Auto-restore draft from Local Storage on load
+  const [tabData, setTabData] = useState(() => {
+    const draft = storageService.getActiveDraft()
+    if (draft && draft.tabData && typeof draft.tabData === 'object') {
+      return {
+        patandairy: draft.tabData.patandairy || initTabState(),
+        arradairy: draft.tabData.arradairy || initTabState(),
+        otherdairy: draft.tabData.otherdairy || initTabState(),
+      }
+    }
+    return {
+      patandairy: initTabState(),
+      arradairy: initTabState(),
+      otherdairy: initTabState(),
+    }
   })
+
   const [modifyMode, setModifyMode] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [showExtraTable, setShowExtraTable] = useState(false)
@@ -714,21 +884,89 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [shareToast, setShareToast] = useState('')
 
-  const st = tabData[tabKey]
+  const st = tabData[tabKey] || initTabState()
+
+  // ── Auto-save tabData to local storage whenever state changes ───────────────
+  useEffect(() => {
+    storageService.saveActiveDraft({ tabData })
+  }, [tabData])
+
+  // ── Activity Logging helper ───────────────────────────────────────────────
+  const logActivity = (action, details, type = 'update') => {
+    storageService.addActivityLog({
+      tab: tabName,
+      action,
+      details,
+      type
+    })
+  }
+
+  // ── Unsaved Changes / Refresh & Navigation Guard ─────────────────────────
+  const hasActiveEntries = Boolean(
+    (st.rows && st.rows.some(r => r.morn > 0 || r.eve > 0)) ||
+    (st.extra && st.extra.some(r => r.morn > 0 || r.eve > 0)) ||
+    st.lessAmt > 0 || st.payOnline > 0
+  )
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasActiveEntries) {
+        e.preventDefault()
+        e.returnValue = 'Data is auto-saved in local storage draft. Are you sure you want to refresh or close?'
+        return e.returnValue
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasActiveEntries])
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (hasActiveEntries) {
+        const confirmLeave = window.confirm(
+          `You have active entries in ${tabName}. All progress is auto-saved locally. Are you sure you want to go back?`
+        )
+        if (!confirmLeave) {
+          window.history.pushState(null, '', window.location.href)
+        }
+      }
+    }
+    window.history.pushState(null, '', window.location.href)
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [hasActiveEntries, tabName])
+
   const upd = patch => setTabData(prev => ({ ...prev, [tabKey]: { ...prev[tabKey], ...patch } }))
 
-  // ── Row array helpers ──────────────────────────────────────────────────────
-  const updRow = (arr, i, field, val) =>
-    arr.map((r, idx) => idx !== i ? r : { ...r, [field]: field === 'name' ? val : (parseFloat(val) || 0) })
-  const delRow = (arr, i) => arr.filter((_, idx) => idx !== i)
+  // ── Row array helpers with activity logging ─────────────────────────────────
+  const updRow = (arr, i, field, val) => {
+    const updated = arr.map((r, idx) => idx !== i ? r : { ...r, [field]: field === 'name' ? val : (parseFloat(val) || 0) })
+    const item = arr[i]
+    if (item && field !== 'name') {
+      logActivity('Update Qty', `Changed ${item.name} ${field} to ${val || 0}`, 'update')
+    } else if (item && field === 'name') {
+      logActivity('Rename Product', `Renamed product to "${val}"`, 'update')
+    }
+    return updated
+  }
+
+  const delRow = (arr, i) => {
+    const item = arr[i]
+    if (item) {
+      logActivity('Remove Row', `Removed ${item.name} from product list`, 'delete')
+    }
+    return arr.filter((_, idx) => idx !== i)
+  }
+
   const moveRow = (arr, i, dir) => {
     const a = [...arr], j = i + dir
     if (j < 0 || j >= a.length) return a
-      ;[a[i], a[j]] = [a[j], a[i]]
+    ;[a[i], a[j]] = [a[j], a[i]]
+    logActivity('Reorder', `Reordered row ${a[j]?.name || ''}`, 'update')
     return a
   }
 
-  // ── Aggregated numbers ── Totals  ─────────────────────────────────────────────────────
+  // ── Aggregated numbers ── Totals ───────────────────────────────────────────
   const mainTotals = calcTotals(st.rows)
   const extraTotals = calcTotals(st.extra)
 
@@ -745,8 +983,6 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
   const finalAfterLess = Math.max(0, finalNet - lessAmt)
 
   // ── Payment mode (Online / Offline) ─────────────────────────────────────────
-  // 'auto' mode: offline = finalAfterLess - online, kept in sync as online changes
-  // 'manual' mode: both typed independently by user (no auto sync)
   const payOnline = Number(st.payOnline) || 0
   const payOffline = st.payMode === 'manual'
     ? (Number(st.payOffline) || 0)
@@ -755,52 +991,46 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
   const handleOnlineChange = (val) => {
     const online = parseFloat(val) || 0
     upd({ payOnline: online, payMode: 'auto', payOffline: Math.max(0, finalAfterLess - online) })
+    logActivity('Payment Online', `Set Online payment to ₹${online}`, 'update')
   }
+
   const handleOfflineChange = (val) => {
     const offline = parseFloat(val) || 0
     upd({ payOffline: offline, payMode: 'manual' })
+    logActivity('Payment Offline', `Set Offline payment to ₹${offline}`, 'update')
   }
+
   const handleLessAmtChange = (val) => {
     const v = parseFloat(val) || 0
     upd({ lessAmt: v })
+    logActivity('Less Amount', `Set discount/less amount to ₹${v}`, 'update')
     try { localStorage.setItem(LAST_LESS_KEY, String(v)) } catch { }
   }
 
   // ── Save / Load ────────────────────────────────────────────────────────────
   const handleSave = () => {
     const h = loadHistory(), key = tabKey + '_' + selectedDate
-    const keys = Object.keys(h).filter(k => k.startsWith(tabKey + '_')).sort()
-    // if (keys.length >= 30 && !keys.includes(key)) delete h[keys[0]]
-    // No entry cap — history is kept for lifetime
-    // AFTER
     h[key] = {
       rows: st.rows, extra: st.extra,
       lessAmt: st.lessAmt, payOnline: st.payOnline, payOffline: st.payOffline, payMode: st.payMode,
-      supplyDate: st.supplyDate,   // ← save supply date
+      supplyDate: st.supplyDate,
     }
     saveHistory(h)
+    logActivity('Save Bill', `Saved bill for date ${selectedDate} (Final Total: ₹${finalAfterLess})`, 'save')
     setSaveMsg('✓ Saved!')
     setTimeout(() => setSaveMsg(''), 2500)
   }
 
-  // AFTER
   const handleLoad = (data, dateStr) => {
     upd({
       rows: data.rows, extra: data.extra,
       lessAmt: data.lessAmt || 0, payOnline: data.payOnline || 0,
       payOffline: data.payOffline || 0, payMode: data.payMode || 'auto',
-      supplyDate: data.supplyDate || tomorrowStr(),   // ← restore supply date
+      supplyDate: data.supplyDate || tomorrowStr(),
     })
+    logActivity('Restore Bill', `Restored saved record from ${dateStr}`, 'restore')
     if (dateStr) setSelectedDate(dateStr)
   }
-
-  // ── Share / Summary helpers ─────────────────────────────────────────────────
-  // const summaryArgs = () => ({
-  //   tabName, dateLabel: fmtDateLabel(selectedDate),
-  //   rows: st.rows, extra: st.extra,
-  //   allMilkL, allDahiKg, finalDisc, finalNet,
-  //   lessAmt, finalAfterLess, payOnline, payOffline,
-  // })
 
   // ── Share / Summary helpers ─────────────────────────────────────────────────
   const summaryArgs = () => {
@@ -812,13 +1042,16 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
         const dateStr = k.replace(tabKey + '_', '')
         const mt = calcTotals(data.rows || [])
         const et = calcTotals(data.extra || [])
+        const grossNet = mt.net + et.net
+        const lessAmt = Number(data.lessAmt) || 0
+        const finalNet = Math.max(0, grossNet - lessAmt)
         return {
           dateStr,
           dateLabel: fmtDateLabel(dateStr),
           milkL: mt.milkKg + et.milkKg,
           dahiKg: mt.dahiKg + et.dahiKg,
-          net: mt.net + et.net,
-          lessAmt: data.lessAmt || 0,
+          net: finalNet,
+          lessAmt,
           payOnline: data.payOnline || 0,
           payOffline: data.payOffline || 0,
         }
@@ -832,7 +1065,9 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
     }), { milkL: 0, dahiKg: 0, net: 0 })
 
     return {
-      tabName, dateLabel: fmtDateLabel(selectedDate),
+      tabName,
+      dateLabel: fmtDateLabel(selectedDate),
+      supplyDateLabel: fmtDateLabel(st.supplyDate || tomorrowStr()),
       rows: st.rows, extra: st.extra,
       allMilkL, allDahiKg, finalDisc, finalNet,
       lessAmt, finalAfterLess, payOnline, payOffline,
@@ -907,13 +1142,14 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
 
             {/* Subtotal row */}
             <tr className="bg-slate-50 dark:bg-slate-700/30">
-              <td colSpan={modifyMode ? 7 : 4}
-                className=" text-right text-[15px] font-semibold text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
+              <td colSpan={3}
+                className="text-left px-20 py-3 text-[15px] font-semibold text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
                 {isExtra ? 'Extra subtotal' : 'Main subtotal'}
               </td>
-              <td colSpan={3} className=" py-3 text-center border-t border-slate-200 dark:border-slate-700">
+              <td className="py-3 text-center border-t border-slate-200 dark:border-slate-700">
                 <span className="font-semibold text-[18px] font-mono text-emerald-600 dark:text-emerald-400">{fmt(totals.net)}</span>
               </td>
+              <td colSpan={modifyMode ? 2 : 1} className="border-t border-slate-200 dark:border-slate-700"></td>
             </tr>
           </tbody>
         </table>
@@ -933,7 +1169,11 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
         <div>
           <div className="font-display font-semibold text-slate-800 dark:text-slate-100 text-xl">{tabName} — Order Sheet</div>
-          <div className="text-xl text-slate-600 dark:text-slate-400 mt-0.5">{fmtDateLabel(selectedDate)}</div>
+          <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-0.5 flex items-center gap-2.5 flex-wrap">
+            <span>📅 Order: {fmtDateLabel(selectedDate)}</span>
+            <span>•</span>
+            <span>🚚 Supply: {fmtDateLabel(st.supplyDate || tomorrowStr())}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -1119,17 +1359,30 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
 
 
       {/* ── Save + Share bar ── */}
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/20 flex-wrap relative">
-        <span className="text-xl text-slate-500 dark:text-slate-400 font-medium">Save for:</span>
-        <input type="date" value={selectedDate}
-          onChange={e => setSelectedDate(e.target.value)}
-          className="px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400" />
+      <div className="flex items-center gap-2.5 px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/20 flex-wrap relative">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Order Date:</span>
+          <input type="date" value={selectedDate}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400" />
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Supply Date:</span>
+          <input type="date" value={st.supplyDate || tomorrowStr()}
+            onChange={e => {
+              const val = e.target.value
+              upd({ supplyDate: val })
+              logActivity('Supply Date', `Updated supply date to ${val}`, 'update')
+            }}
+            className="px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400" />
+        </div>
 
         <button onClick={handleSave}
-          className="px-4 py-1.5 rounded-xl text-xl font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
+          className="px-4 py-1.5 rounded-xl text-lg font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
           💾 Save
         </button>
-        {saveMsg && <span className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">{saveMsg}</span>}
+        {saveMsg && <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{saveMsg}</span>}
 
         {/* Share button + dropdown menu with both options */}
         <div className="relative ml-auto">

@@ -1,5 +1,7 @@
 const SETTINGS_KEY = 'sudha_bill_calculator_settings'
 const HISTORY_KEY = 'dairy_history_v4'
+const DRAFT_KEY = 'sudha_bill_active_draft_v5'
+const LOGS_KEY = 'sudha_bill_activity_logs_v1'
 
 export const storageService = {
   getProducts(key = 'sudha_bill_patandairy_products') {
@@ -51,6 +53,82 @@ export const storageService = {
     }
   },
 
+  // ─── Active Draft Persistence (Auto-Save on every change) ────────────────
+  getActiveDraft() {
+    try {
+      const data = localStorage.getItem(DRAFT_KEY)
+      return data ? JSON.parse(data) : null
+    } catch (error) {
+      console.error('Failed to load active draft:', error)
+      return null
+    }
+  },
+
+  saveActiveDraft(draftData) {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        ...draftData,
+        lastUpdated: new Date().toISOString()
+      }))
+      return true
+    } catch (error) {
+      console.error('Failed to save active draft:', error)
+      return false
+    }
+  },
+
+  clearActiveDraft() {
+    try {
+      localStorage.removeItem(DRAFT_KEY)
+      return true
+    } catch (error) {
+      console.error('Failed to clear active draft:', error)
+      return false
+    }
+  },
+
+  // ─── Activity History & Change Logs ──────────────────────────────────────
+  getActivityLogs() {
+    try {
+      const data = localStorage.getItem(LOGS_KEY)
+      return data ? JSON.parse(data) : []
+    } catch (error) {
+      console.error('Failed to load activity logs:', error)
+      return []
+    }
+  },
+
+  addActivityLog(log) {
+    try {
+      const logs = this.getActivityLogs()
+      const newEntry = {
+        id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        timestamp: new Date().toISOString(),
+        tab: log.tab || 'General',
+        action: log.action || 'Update',
+        details: log.details || '',
+        type: log.type || 'info', // 'info', 'update', 'save', 'delete', 'restore'
+      }
+      // Keep up to 200 most recent logs
+      const updated = [newEntry, ...logs].slice(0, 200)
+      localStorage.setItem(LOGS_KEY, JSON.stringify(updated))
+      return newEntry
+    } catch (error) {
+      console.error('Failed to add activity log:', error)
+      return null
+    }
+  },
+
+  clearActivityLogs() {
+    try {
+      localStorage.removeItem(LOGS_KEY)
+      return true
+    } catch (error) {
+      console.error('Failed to clear activity logs:', error)
+      return false
+    }
+  },
+
   exportToJSON(products) {
     const data = {
       exportedAt: new Date().toISOString(),
@@ -90,8 +168,6 @@ export const storageService = {
       reader.readAsText(file)
     })
   },
-
-// add these inside storageService object, after importFromJSON:
 
   getHistory() {
     try {

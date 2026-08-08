@@ -1,50 +1,24 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// versions.js — central registry of all live app versions
-// ───────────────────────────────────────────────────────────────────────────────
-// PATH: src/versions.js
-//
-// HOW TO ADD A NEW VERSION (e.g. releasing v4):
-//   1. Push your new code to Vercel → wait for deploy to finish
-//   2. On Vercel dashboard → Deployments → click the PREVIOUS deploy row
-//      → copy its permanent URL  (looks like: sudha-bill-calculator-xxxxx.vercel.app)
-//   3. In THIS file:
-//        a. Add a new entry at the TOP of APP_VERSIONS with your new id ('v4')
-//        b. Move the old 'v3' entry down one slot and paste the permanent URL into its `url` field
-//        c. Change CURRENT_VERSION_ID to 'v4'
-//        d. Set isLatest: true on the new entry, isLatest: false on all others
-//   4. Commit + push — the picker updates in every live version automatically
-//
-// SHARED HISTORY NOTE:
-//   All versions served from the SAME Vercel domain share localStorage
-//   automatically (same origin). Saved milk/dahi history is visible in v1, v2,
-//   v3 without any extra work. Permanent *.vercel.app URLs are different origins
-//   and do NOT share storage — always link to your main domain URLs for versions.
+// versions.js — central registry of all live app versions & changelogs
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ← UPDATE THIS every time you release a new version
-export const CURRENT_VERSION_ID = 'v3'
+export const CURRENT_VERSION_ID = 'v4'
 
-export const APP_VERSIONS = [
-  // ── CURRENT / LATEST version — always first ─────────────────────────────
-   {
+export const VERSION_LIST = [
+  {
     id:          'v4',
     label:       'v4 — Latest',
-    url:         '/',           // your live domain root, e.g. https://sudha.vercel.app/
-    description: 'Version picker, Milk/Dahi split totals, history panel, Less Amount, payment mode',
+    url:         '/',
+    description: 'Supply Date picker, persistent draft auto-save, Activity logs & PWA',
     isLatest:    true,
   },
-
   {
     id:          'v3',
     label:       'v3',
-    url:         'https://sudha-bill-calculator-61v1rql7u-ashish2024-28s-projects.vercel.app/',          
+    url:         'https://sudha-bill-calculator-61v1rql7u-ashish2024-28s-projects.vercel.app/',
     description: 'Version picker, Milk/Dahi split totals, history panel, Less Amount, payment mode',
-    isLatest:    true,
+    isLatest:    false,
   },
-
-  // ── OLDER versions — paste permanent Vercel URL in `url` ─────────────────
-  // After deploying v4, this entry's url becomes the permanent link for v3.
-  // To find it: Vercel dashboard → Deployments → click any old row → copy URL.
   {
     id:          'v2',
     label:       'v2 — Stable',
@@ -60,3 +34,69 @@ export const APP_VERSIONS = [
     isLatest:    false,
   },
 ]
+
+export const APP_VERSIONS = [
+  {
+    version: 'v5.2.0 (v4)',
+    date: '2026-08-08',
+    tag: 'Latest',
+    title: 'Supply Date Fix & Persistent Draft Engine',
+    changes: [
+      'Added Supply Date picker right next to Order Date.',
+      'Auto-saved active order state to Local Storage draft on every input change.',
+      'Saved supply date into billing history records and share summaries.',
+      'Comprehensive Activity Logs & Change Tracker modal.',
+      'Browser refresh & navigation back-button safety alerts when unsaved calculations exist.'
+    ]
+  },
+  {
+    version: 'v5.1.0 (v3)',
+    date: '2026-08-01',
+    tag: 'Stable',
+    title: 'Multi-Dairy Management System',
+    changes: [
+      'Separated Patna Dairy, Arra Dairy, and Other Dairy tab order sheets.',
+      'Integrated Web Share API and formatted WhatsApp/Print summary templates.',
+      'Added custom extra products and milk/dahi total calculations.'
+    ]
+  },
+  {
+    version: 'v5.0.0 (v2)',
+    date: '2026-07-15',
+    tag: 'Major',
+    title: 'Modern UI Redesign & PWA Installation',
+    changes: [
+      'Full offline PWA support with service worker precaching.',
+      'Dark mode theme engine with system auto-detection.',
+      'Interactive modification mode for editing product names and unit rates.'
+    ]
+  },
+  {
+    version: 'v4.0.0 (v1)',
+    date: '2026-06-20',
+    tag: 'Feature',
+    title: 'Dynamic Rate & Item Customization',
+    changes: [
+      'Product edit mode for updating unit prices and product labels.',
+      'Reordering, inserting, and deleting milk/dairy product rows.',
+      'Custom Extra Items row insertion engine.'
+    ]
+  }
+]
+
+export const APP_INFO = {
+  name: 'Sudha Bill Calculator',
+  subtitle: 'Dairy Order & Daily Billing Management System',
+  description: 'An offline-first Progressive Web Application (PWA) engineered specifically for Sudha, Patna, Arra, and local dairy distributors to generate accurate daily order sheets, track supply dates, calculate milk/dahi weight subtotals, and maintain complete local billing history.',
+  developer: 'Sudha Bill Engineering',
+  techStack: ['React', 'Vite PWA', 'Tailwind CSS', 'Local Storage Engine', 'Lucide Icons'],
+  features: [
+    'Offline-First PWA (works without internet)',
+    'Auto-Save Active Draft on every change',
+    'Supply Date & Order Date synchronization',
+    'Real-Time Activity Log & Change History',
+    'Multi-Dairy Management (Patna, Arra, Other)',
+    'Print & Web Share API support for WhatsApp summaries',
+    'Dark/Light Mode theme toggle'
+  ]
+}

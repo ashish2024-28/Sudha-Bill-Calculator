@@ -1,9 +1,22 @@
-import React, { useState } from 'react'
-import { APP_VERSIONS, CURRENT_VERSION_ID } from '../versions'
+import React, { useState, useRef, useEffect } from 'react'
+import { ChevronDown, Check, Tag } from 'lucide-react'
+import { VERSION_LIST, CURRENT_VERSION_ID } from '../versions'
 
 const VersionPicker = () => {
   const [open, setOpen] = useState(false)
-  const current = APP_VERSIONS.find(v => v.id === CURRENT_VERSION_ID) || APP_VERSIONS[0]
+  const pickerRef = useRef(null)
+
+  const current = VERSION_LIST.find(v => v.id === CURRENT_VERSION_ID) || VERSION_LIST[0]
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handlePick = (v) => {
     setOpen(false)
@@ -12,103 +25,77 @@ const VersionPicker = () => {
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={pickerRef}>
       <button
         onClick={() => setOpen(o => !o)}
-        className={[
-          'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold',
-          'border border-slate-200 dark:border-slate-600',
-          'bg-white dark:bg-slate-800',
-          'text-slate-600 dark:text-slate-300',
-          'hover:border-blue-300 dark:hover:border-blue-600',
-          'transition-colors select-none',
-        ].join(' ')}
+        title="Switch Web App Version"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 shadow-xs select-none"
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-          <line x1="7" y1="7" x2="7.01" y2="7" />
-        </svg>
-        {current.label}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
+        <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <span>{current.label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+        <div className="absolute right-0 mt-2 w-72 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden animate-fadeIn">
+          <div className="px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              Switch App Version
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/50">
+              Active: {current.id}
+            </span>
+          </div>
 
-          <div className="absolute right-0 mt-2 w-72 z-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl overflow-hidden">
-
-            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
-              Switch version
-            </div>
-
-            {APP_VERSIONS.map((v, idx) => {
+          <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/50">
+            {VERSION_LIST.map((v, idx) => {
               const isCurrent = v.id === CURRENT_VERSION_ID
               return (
                 <button
                   key={v.id}
                   onClick={() => handlePick(v)}
-                  className={[
-                    'w-full text-left px-3 py-2.5 transition-colors',
-                    'border-b border-slate-50 dark:border-slate-700/50 last:border-0',
+                  className={`w-full text-left px-3.5 py-3 transition-colors flex flex-col gap-1 ${
                     isCurrent
-                      ? 'bg-blue-50 dark:bg-blue-900/20 cursor-default'
-                      : 'hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer',
-                  ].join(' ')}
+                      ? 'bg-blue-50/70 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                      : 'hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200'
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className={[
-                        'w-2 h-2 rounded-full flex-shrink-0',
-                        idx === 0 ? 'bg-emerald-500' : idx === 1 ? 'bg-blue-400' : 'bg-slate-300',
-                      ].join(' ')} />
-                      <span className={[
-                        'text-sm font-semibold',
-                        isCurrent
-                          ? 'text-blue-600 dark:text-blue-400'
-                          : 'text-slate-700 dark:text-slate-200',
-                      ].join(' ')}>
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${
+                        idx === 0 ? 'bg-emerald-500 animate-pulse' : idx === 1 ? 'bg-blue-500' : 'bg-slate-400'
+                      }`} />
+                      <span className="text-xs sm:text-sm font-bold">
                         {v.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {v.isLatest && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-200 dark:border-emerald-800">
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-bold uppercase tracking-wider">
                           Latest
                         </span>
                       )}
                       {isCurrent && (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                          stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
+                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       )}
                     </div>
                   </div>
+
                   {v.description && (
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 ml-4">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 pl-4 leading-normal">
                       {v.description}
-                    </p>
-                  )}
-                  {v.date && (
-                    <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-0.5 ml-4">
-                      {v.date}
                     </p>
                   )}
                 </button>
               )
             })}
-
-            <div className="px-3 py-2 bg-emerald-50 dark:bg-emerald-900/10 border-t border-emerald-100 dark:border-emerald-900/30 text-[10px] text-emerald-700 dark:text-emerald-400">
-              All versions share the same saved history
-            </div>
           </div>
-        </>
+
+          <div className="px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700 text-[10px] text-slate-400 text-center font-medium">
+            💡 All domain versions share the same saved local history
+          </div>
+        </div>
       )}
     </div>
   )
