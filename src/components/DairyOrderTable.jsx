@@ -1,73 +1,150 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { storageService } from '../services/storageService'
+import { getFestivalAdvisor } from '../data/festivalCalendar'
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PRODUCT CATALOGUE  &  CALCULATION RULES
+// PRODUCT CATALOGUES & CALCULATION RULES
 // ───────────────────────────────────────────────────────────────────────────────
-//
-// THREE distinct pricing / input modes — stored in `calcMode` field:
-//
-//  'kg'    – Milk 1 kg/L packs (Cow, Shakti, Gold full-litre)
-//            user enters: actual kg/L in Morning + Evening
-//            price is ₹ per kg/L
-//            net = qty × price − discMilk × qty
-//            e.g. qty=10, price=57, disc=2.3 → 570 − 23 = ₹547
-//
-//  'pack'  – Milk 0.5 L packs (Cow, Shakti, Gold half-litre)
-//            user enters: number of 500 ml packs
-//            price is ₹ per pack (NOT per kg)
-//            net = qty × price − discMilk × qty   (disc per pack, as confirmed)
-//            e.g. qty=5, price=58, disc=2.3 → 290 − 11.5 = ₹278.50
-//
-//  'dahi'  – Dahi 400 g packs
-//            user enters: kg (EVEN numbers: 2, 4, 6 …)
-//            1 kg = 2.5 packs of 400 g  →  packets = inputKg × 2.5
-//            price is ₹35 per packet
-//            net = packets × 35 − discDahi × packets
-//            e.g. inputKg=2 → packets=5, gross=175, disc=2.9×5=14.50, net=₹160.50 ✓
-//
+// SUDHA / PATNA / ARRA DAIRY PRODUCTS vs. NAMASTE INDIA (OTHER DAIRY) PRODUCTS
 // ═══════════════════════════════════════════════════════════════════════════════
-const BASE_PRODUCTS = [
-  // id         name                     price  calcMode
-  { id: 'shak1', name: 'Shakti 1 L', price: 60, calcMode: 'kg', discAmt: 2.3 },
-  { id: 'gold05', name: 'Gold 1/2 L', price: 70, calcMode: 'kg', discAmt: 2.3 },
-  { id: 'shak05', name: 'Shakti 1/2 L', price: 62, calcMode: 'kg', discAmt: 2.3 },
-  { id: 'cow05', name: 'Cow 1/2 L', price: 58, calcMode: 'kg', discAmt: 2.3 },
-  { id: 'cow1', name: 'Cow 1 L', price: 57, calcMode: 'kg', discAmt: 2.3 },
-  { id: 'gold1', name: 'Gold 1 L', price: 68, calcMode: 'kg', discAmt: 2.3 },
 
-  // Dahi: user enters kg (even). 1 kg = 2.5 packets × ₹35 = ₹87.50/kg
-  { id: 'dahi200', name: 'Dahi 200 g', price: 20, calcMode: 'dahi', discAmt: 1.7 },
-  { id: 'dahi400', name: 'Dahi 400 g', price: 35, calcMode: 'dahi', discAmt: 2.865 },
+// ─── SUDHA / PATNA DAIRY / ARRA DAIRY PRODUCTS ─────────────────────────────────
+export const SUDHA_BASE_PRODUCTS = [
+  // id         name                     price  calcMode  discAmt
+  { id: 'shak1',   name: 'Shakti 1 L',   price: 60, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'gold05',  name: 'Gold 1/2 L',   price: 70, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'shak05',  name: 'Shakti 1/2 L', price: 62, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'cow05',   name: 'Cow 1/2 L',    price: 58, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'cow1',    name: 'Cow 1 L',      price: 57, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'gold1',   name: 'Gold 1 L',     price: 68, calcMode: 'kg',   discAmt: 2.3 },
+
+  // Dahi: user enters kg (even). 100g (₹10/pkt, ₹1.0 disc), 200g (₹20/pkt, ₹1.6 disc), 400g (₹35/pkt, ₹2.9 disc)
+  { id: 'dahi200', name: 'Dahi 200 g',   price: 20, calcMode: 'dahi', discAmt: 1.6 },
+  { id: 'dahi400', name: 'Dahi 400 g',   price: 35, calcMode: 'dahi', discAmt: 2.9 },
 ]
+
+// ─── NAMASTE INDIA (OTHER DAIRY DEFAULT) PRODUCTS ─────────────────────────────
+// Default Rates: Shakti 1 L: ₹59, Gold 1/2 L: ₹68, Shakti 1/2 L: ₹60, Cow 1/2 L: ₹56, Cow 1 L: ₹56, Gold 1 L: ₹67
+export const NAMASTE_INDIA_BASE_PRODUCTS = [
+  // id         name                     price  calcMode  discAmt
+  { id: 'shak1',   name: 'Shakti 1 L',   price: 59, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'gold05',  name: 'Gold 1/2 L',   price: 67, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'shak05',  name: 'Shakti 1/2 L', price: 60, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'cow05',   name: 'Cow 1/2 L',    price: 56, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'cow1',    name: 'Cow 1 L',      price: 56, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'gold1',   name: 'Gold 1 L',     price: 68, calcMode: 'kg',   discAmt: 2.3 },
+
+  // Dahi: user enters kg (even). 100g (₹10/pkt, ₹1.0 disc), 200g (₹20/pkt, ₹1.6 disc), 400g (₹35/pkt, ₹2.9 disc)
+  { id: 'dahi100', name: 'Dahi 100 g',   price: 10, calcMode: 'dahi', discAmt: 1.0 },
+  { id: 'dahi200', name: 'Dahi 200 g',   price: 20, calcMode: 'dahi', discAmt: 1.6 },
+  { id: 'dahi400', name: 'Dahi 400 g',   price: 35, calcMode: 'dahi', discAmt: 2.9 },
+
+  // Lassi: user enters packets. ₹10 per packet with ₹1.1 discount
+  { id: 'lassi10', name: 'Lassi 10 Rs',  price: 10, calcMode: 'pack', discAmt: 1.1 },
+]
+
+export const BASE_PRODUCTS = SUDHA_BASE_PRODUCTS
+
+export const getDefaultProductsForTab = (tabKey = '') => {
+  const k = String(tabKey).toLowerCase()
+  if (k.includes('namaste') || k.startsWith('otherdairy')) {
+    return NAMASTE_INDIA_BASE_PRODUCTS
+  }
+  return SUDHA_BASE_PRODUCTS
+}
 
 
 // ─── Calendar helpers ──────────────────────────────────────────────────────────
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
+const formatDateToIso = (d) => {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const todayStr = () => formatDateToIso(new Date())
 
 const tomorrowStr = () => {
   const d = new Date()
   d.setDate(d.getDate() + 1)
-  return d.toISOString().slice(0, 10)
+  return formatDateToIso(d)
+}
+
+const getNextDayStr = (dateStr) => {
+  if (!dateStr) return tomorrowStr()
+  const parts = String(dateStr).split('-')
+  if (parts.length === 3) {
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+    d.setDate(d.getDate() + 1)
+    return formatDateToIso(d)
+  }
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + 1)
+  return formatDateToIso(d)
 }
 
 const fmtDateLabel = dateStr => {
-  const d = new Date(dateStr + 'T00:00:00')
-  return `${DAYS[d.getDay()]}, ${d.getDate()} ${d.toLocaleString('default', { month: 'short' })} ${d.getFullYear()}`
+  if (!dateStr) return ''
+  const parts = String(dateStr).split('-')
+  let d
+  if (parts.length === 3) {
+    d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+  } else {
+    d = new Date(dateStr)
+  }
+  if (isNaN(d.getTime())) return dateStr
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${DAYS[d.getDay()]}, ${day}/${month}/${year}`
+}
+
+const formatIsoToDdMmYyyy = (isoStr) => {
+  if (!isoStr) return ''
+  const parts = isoStr.split('-')
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`
+  }
+  return isoStr
+}
+
+// Helper to allow smooth decimal typing (e.g. "2.", "2.3", ".5") for Discount and monetary fields
+const sanitizeDecimalInput = (val) => {
+  if (val === '' || val === undefined || val === null) return ''
+  const str = String(val).replace(/,/g, '.')
+  const clean = str.replace(/[^0-9.]/g, '')
+  const parts = clean.split('.')
+  if (parts.length > 2) {
+    return parts[0] + '.' + parts.slice(1).join('')
+  }
+  return clean
+}
+
+// Helper to strictly allow whole numbers / integers only (e.g. "10", "4", "2") for Order Quantities
+const sanitizeIntegerInput = (val) => {
+  if (val === '' || val === undefined || val === null) return ''
+  return String(val).replace(/[^0-9]/g, '')
 }
 
 // ─── Row factory ───────────────────────────────────────────────────────────────
 // Creates a zeroed order row from a product definition.
-const mkRow = ({ id, name, price, calcMode, discAmt }) => ({
-  id, name,
-  price: Number(price),
-  calcMode,
-  disc: Number(discAmt) || 2.30,   // ← per-row discount from product definition
-  morn: 0,
-  eve: 0,
-})
+const mkRow = ({ id, name, price, calcMode, discAmt }) => {
+  let disc = discAmt !== undefined ? discAmt : 2.30
+  if (id === 'dahi100') disc = 1.0
+  if (id === 'dahi200') disc = 1.6
+  if (id === 'dahi400') disc = 2.9
+  if (id === 'lassi10' || (name && String(name).toLowerCase().includes('lassi'))) disc = 1.1
+  return {
+    id, name,
+    price: Number(price),
+    calcMode,
+    disc,
+    morn: '',
+    eve: '',
+  }
+}
 
 const uid = () => 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
 const fmt = n => '₹' + parseFloat(n || 0).toFixed(1)
@@ -81,16 +158,51 @@ const fmtN = n => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const calcRow = (r) => {
-  const qty = (Number(r.morn) || 0) + (Number(r.eve) || 0)
-  const disc = Number(r.disc) || 0
+  const qty = (parseFloat(r.morn) || 0) + (parseFloat(r.eve) || 0)
+  const disc = parseFloat(r.disc) || 0
+  const price = parseFloat(r.price) || 0
+
+  if (r.id === 'dahi100') {
+    // ── Dahi 100g ───────────────────────────────────────────────────────────
+    // qty = kg entered by user (1 kg = 10 packs of 100g)
+    const packets = qty * 10
+    const gross = packets * price          // packets × ₹10
+    const discAmt = disc * packets         // packets × ₹1.0
+
+    return {
+      qty, packets,
+      actualKg: qty,                                  // kg for totals
+      gross, discAmt,
+      net: Math.max(0, gross - discAmt),
+      inputLabel: 'kg',
+      kgLabel: `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
+    }
+  }
+
+  if (r.id === 'dahi200') {
+    // ── Dahi 200g ───────────────────────────────────────────────────────────
+    // qty = kg entered by user (must be even: 2, 4, 6 …)
+    // packets = qty × 5   (200g packs per kg)
+    const packets = qty * 5
+    const gross = packets * price          // packets × ₹20
+    const discAmt = disc * packets
+
+    return {
+      qty, packets,
+      actualKg: qty,                                  // kg for totals
+      gross, discAmt,
+      net: Math.max(0, gross - discAmt),
+      inputLabel: 'kg',
+      kgLabel: `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
+    }
+  }
 
   if (r.id === 'dahi400') {
     // ── Dahi 400g ───────────────────────────────────────────────────────────
     // qty = kg entered by user (must be even: 2, 4, 6 …)
     // packets = qty × 2.5   (400g packs per kg)
     const packets = qty * 2.5
-    const gross = packets * Number(r.price)          // packets × ₹35
-
+    const gross = packets * price          // packets × ₹35
     const discAmt = disc * packets
 
     return {
@@ -102,30 +214,26 @@ const calcRow = (r) => {
       kgLabel: `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
     }
   }
-  if (r.id === 'dahi200') {
-    // ── Dahi 400g ───────────────────────────────────────────────────────────
-    // qty = kg entered by user (must be even: 2, 4, 6 …)
-    // packets = qty × 2.5   (400g packs per kg)
-    const packets = qty * 5
-    const gross = packets * Number(r.price)          // packets × ₹20
 
-    const discAmt = disc * packets
-
+  if (r.id === 'lassi10' || (r.name && String(r.name).toLowerCase().includes('lassi'))) {
+    // ── Lassi 10 Rs ──────────────────────────────────────────────────────────
+    // qty = number of packets entered
+    const gross = qty * price              // qty × ₹10
+    const discAmt = disc * qty             // qty × ₹1.1
     return {
-      qty, packets,
-      actualKg: qty,                                  // kg for totals
+      qty, packets: qty,
+      actualKg: 0,                         // beverage packets
       gross, discAmt,
       net: Math.max(0, gross - discAmt),
-      inputLabel: 'kg',
-      kgLabel: `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
+      inputLabel: 'pkt',
+      kgLabel: `${fmtN(qty)} pkt`,
     }
   }
 
   if (r.calcMode === 'kg') {
     // ── Milk 1 kg/L packs ───────────────────────────────────────────────────
     // qty = actual kg/L entered
-    const gross = qty * Number(r.price)
-
+    const gross = qty * price
     const discAmt = disc * qty
 
     return {
@@ -141,7 +249,7 @@ const calcRow = (r) => {
   // ── Milk 0.5 L packs  (calcMode === 'pack') ──────────────────────────────
   // qty = number of 500 ml packs entered
   // discount is per pack (not per litre)
-  const gross = qty * Number(r.price)
+  const gross = qty * price
   const discAmt = disc * qty
   return {
     qty, packets: qty,
@@ -160,9 +268,10 @@ const calcTotals = rows =>
 
     const c = calcRow(r)
 
-    const isDahi = r.calcMode === 'dahi'
+    const isDahi = r.calcMode === 'dahi' || r.id === 'dahi100' || r.id === 'dahi200' || r.id === 'dahi400'
+    const isDrink = r.id === 'lassi10' || (r.name && String(r.name).toLowerCase().includes('lassi'))
     return {
-      milkKg: acc.milkKg + (!isDahi ? c.actualKg : 0),
+      milkKg: acc.milkKg + (!isDahi && !isDrink ? c.actualKg : 0),
       dahiKg: acc.dahiKg + (isDahi ? c.actualKg : 0),
       gross: acc.gross + c.gross,
       disc: acc.disc + c.discAmt,
@@ -171,15 +280,64 @@ const calcTotals = rows =>
   }, { milkKg: 0, dahiKg: 0, gross: 0, disc: 0, net: 0 })
 
 // ─── Initial tab state ─────────────────────────────────────────────────────────
-const initTabState = () => ({
-  rows: BASE_PRODUCTS.map(mkRow),
-  extra: BASE_PRODUCTS.map(mkRow),
-  lessAmt: Number(localStorage.getItem('dairy_last_less_amt') || 0),
-  payOnline: 0,
-  payOffline: 0,
-  payMode: 'auto',
-  supplyDate: tomorrowStr(),   // ← default supply date = tomorrow
-})
+const BANNED_PRODUCT_KEYWORDS = ['paneer', 'pedha', 'pedaa', 'butter', 'other item']
+
+const sanitizeRows = (rows, tabKey = '') => {
+  const defaultList = getDefaultProductsForTab(tabKey)
+  if (!Array.isArray(rows) || rows.length === 0) return defaultList.map(mkRow)
+  let filtered = rows
+    .filter(r => {
+      if (!r || !r.name) return false
+      const nameLower = String(r.name).toLowerCase().trim()
+      return !BANNED_PRODUCT_KEYWORDS.some(banned => nameLower.includes(banned))
+    })
+    .map(r => {
+      if (r.id === 'dahi100' && (!r.disc || r.disc === 0)) return { ...r, disc: 1.0, price: r.price || 10 }
+      if (r.id === 'dahi200' && (r.disc === 1.7 || !r.disc)) return { ...r, disc: 1.6, price: r.price || 20 }
+      if (r.id === 'dahi400' && (r.disc === 2.865 || !r.disc)) return { ...r, disc: 2.9, price: r.price || 35 }
+      if ((r.id === 'lassi10' || r.name?.toLowerCase().includes('lassi')) && (!r.disc || r.disc === 0)) {
+        return { ...r, disc: 1.1, price: r.price || 10 }
+      }
+      return r
+    })
+
+  // Ensure standard items like Dahi 100g and Lassi are present
+  const hasDahi100 = filtered.some(r => r.id === 'dahi100' || (r.name && r.name.toLowerCase().includes('dahi 100')))
+  if (!hasDahi100) {
+    const d100Def = defaultList.find(p => p.id === 'dahi100')
+    if (d100Def) {
+      const d200Idx = filtered.findIndex(r => r.id === 'dahi200')
+      if (d200Idx !== -1) {
+        filtered.splice(d200Idx, 0, mkRow(d100Def))
+      } else {
+        filtered.push(mkRow(d100Def))
+      }
+    }
+  }
+
+  const hasLassi = filtered.some(r => r.id === 'lassi10' || (r.name && r.name.toLowerCase().includes('lassi')))
+  if (!hasLassi) {
+    const lassiDef = defaultList.find(p => p.id === 'lassi10')
+    if (lassiDef) {
+      filtered.push(mkRow(lassiDef))
+    }
+  }
+
+  return filtered.length > 0 ? filtered : defaultList.map(mkRow)
+}
+
+const initTabState = (tabKey = '') => {
+  const defaultList = getDefaultProductsForTab(tabKey)
+  return {
+    rows: defaultList.map(mkRow),
+    extra: defaultList.map(mkRow),
+    lessAmt: Number(localStorage.getItem('dairy_last_less_amt') || 0),
+    payOnline: 0,
+    payOffline: 0,
+    payMode: 'auto',
+    supplyDate: '',   // ← defaults dynamically to selectedDate + 1 day
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // localStorage  (saves per-day history, max 30 entries per tab)
@@ -358,18 +516,18 @@ const buildSummaryHTML = ({ tabName, dateLabel, supplyDateLabel, rows, extra, al
 // ═══════════════════════════════════════════════════════════════════════════════
 // TABLE HEADER
 // ═══════════════════════════════════════════════════════════════════════════════
-// Columns: Product | ₹/kg/L | Morning | Evening | Qty | Kg/L | Net | [Move/Del]
+// Columns: Product | ₹/kg/L | Total Kg | Total Kg | Total ₹ | Disc ₹ | [Move/Del]
 const THead = ({ showDel }) => (
   <thead>
     <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-      <th className="px-3 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 120 }}>Product</th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 40 }}>₹ / kg</th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 65 }}>Total Kg</th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 50 }}> Total Kg </th>
-      <th className="px-1 py-2 text-center text-xm font-semibold text-emerald-600 dark:text-emerald-400 uppercase" style={{ width: 80 }}>Total ₹</th>
-      <th className="px-1 py-2 text-center text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 60 }}>Disc ₹</th>
+      <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 sm:px-3 py-2 text-left sm:text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#cbd5e1] dark:shadow-[1px_0_0_0_#334155]" style={{ width: 135, minWidth: 125 }}>Product</th>
+      <th className="px-1 py-2 text-center text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 42 }}>₹ / kg</th>
+      <th className="px-1 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 65 }}>Total Kg</th>
+      <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-blue-700 dark:text-blue-300 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 75 }}>Total Kg</th>
+      <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 uppercase" style={{ width: 85 }}>Total ₹</th>
+      <th className="px-1 py-2 text-center text-xs font-bold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 60 }}>Disc ₹</th>
 
-      {showDel && <th style={{ width: 72 }} className="px-1 py-2 text-center text-xs font-semibold text-slate-400 uppercase">Move/Del</th>}
+      {showDel && <th style={{ width: 72 }} className="px-1 py-2 text-center text-xs font-bold text-slate-400 uppercase">Move/Del</th>}
     </tr>
   </thead>
 )
@@ -380,9 +538,9 @@ const THead = ({ showDel }) => (
 const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete, onMoveUp, onMoveDown }) => {
   const { qty, net, kgLabel } = calcRow(row)
 
-  const isDahi = row.id === 'dahi400'
-  // ── Dahi: warn if odd number entered ──
-  const dahiWarn = isDahi && qty > 0 && qty % 2 !== 0
+  const isDahi = row.id === 'dahi400' || row.id === 'dahi200' || row.id === 'dahi100'
+  // ── Dahi 400g: warn if odd kg entered (since 1 kg = 2.5 packs) ──
+  const dahiWarn = row.id === 'dahi400' && qty > 0 && qty % 2 !== 0
 
   const cell = 'border-b border-slate-100 dark:border-slate-700/50 border-r border-slate-100 dark:border-slate-700/50 px-1 py-1.5 text-center text-xs'
   const inp = 'w-full bg-transparent border-none outline-none text-xs text-center font-mono text-slate-800 dark:text-slate-100'
@@ -391,62 +549,60 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
   return (
     <tr className={`hover:bg-blue-50/20 dark:hover:bg-blue-900/10 transition-colors ${dahiWarn ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
 
-      {/* Product name */}
-      <td className={`${cell} text-left px-2 bg-slate-50/40 dark:bg-slate-700/20`}>
+      {/* Product name: Sticky on left for mobile phones */}
+      <td className={`${cell} text-left px-2 sticky left-0 z-10 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#e2e8f0] dark:shadow-[1px_0_0_0_#334155]`}>
         {modifyMode
-          ? <input className={`${inp} text-left`} value={row.name}
+          ? <input className="w-full text-sm sm:text-base font-bold text-slate-900 dark:text-white bg-amber-50 dark:bg-slate-800 px-2 py-1 rounded-lg border-none outline-none focus:bg-amber-100 dark:focus:bg-slate-700" value={row.name}
             onChange={e => onUpdate(idx, 'name', e.target.value)} />
           : <div>
-            <span className="text-slate-800 dark:text-slate-100 text-[15px] leading-tight ">{row.name}</span>
+            <span className="text-slate-800 dark:text-slate-100 text-[15px] sm:text-[17px] font-bold leading-tight">{row.name}</span>
           </div>}
       </td>
 
       {/* Price per kg/L/pack */}
       <td className={cell}>
         {modifyMode
-          ? <input type="text" min="0" step="0.5" className={inp} value={row.price}
-            onChange={e => onUpdate(idx, 'price', e.target.value)} />
-          : <span className="text-slate-500 dark:text-slate-400 text-[12px]">₹{row.price}</span>}
+          ? <input
+            type="text"
+            inputMode="decimal"
+            placeholder="0"
+            className={`${inp} text-xs font-semibold`}
+            value={row.price !== undefined && row.price !== null ? row.price : ''}
+            onChange={e => onUpdate(idx, 'price', e.target.value)}
+          />
+          : <span className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-[12px] font-medium">₹{row.price}</span>}
       </td>
 
-      {/* Morning input or Total Milk */}
+      {/* Morning input or Order Quantity / Packets */}
       <td className={cell}>
         {editMode
           ? <input
-            type="text" min="0" step={isDahi ? 2 : 1}
-            className={`${inp} focus:bg-blue-50 dark:focus:bg-blue-900/30 rounded`}
-            value={row.morn || ''} placeholder="0"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            className="w-full bg-yellow-50 dark:bg-slate-800 border-none outline-none text-base sm:text-lg md:text-xl font-black text-center font-mono text-slate-900 dark:text-white rounded-lg py-1 px-1 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all"
+            value={row.morn !== undefined && row.morn !== null ? row.morn : ''}
+            placeholder="0"
             onChange={e => onUpdate(idx, 'morn', e.target.value)} />
-          : <span className="text-slate-600 dark:text-slate-300 text-[17px]">{row.morn || '-'}</span>}
+          : <span className="text-slate-800 dark:text-slate-100 text-[18px] sm:text-[20px] font-extrabold">{row.morn || '-'}</span>}
       </td>
-
-      {/* Evening input */}
-      {/* <td className={cell}>
-        {editMode
-          ? <input
-            type="text" min="0" step={isDahi ? 2 : 1}
-            className={`${inp} focus:bg-blue-50 dark:focus:bg-blue-900/30 rounded`}
-            value={row.eve || ''} placeholder="0"
-            onChange={e => onUpdate(idx, 'eve', e.target.value)} />
-          : <span className="text-slate-600 dark:text-slate-300 text-[16px]">{row.eve || '-'}</span>}
-      </td> */}
 
       {/* Kg / L display  + warning */}
       <td className={cell}>
-        <span className={`px-1.5 py-0.5 rounded font-semibold text-[12px] dark:bg-slate-600
+        <span className={`px-1 py-0.5 rounded font-bold text-[13px] sm:text-[14px] dark:bg-slate-700/80
         ${isDahi
-            ? 'text-slate-800 dark:text-slate-300 leading-tight whitespace-pre-line '
-            : 'text-slate-800 dark:text-slate-300 '
+            ? 'text-blue-900 dark:text-blue-200 leading-tight whitespace-pre-line'
+            : 'text-blue-900 dark:text-blue-200'
           }`}>
           {kgLabel}
         </span>
-        {dahiWarn && <span className="block text-[9px] text-orange-500 leading-tight">enter even</span>}
+        {dahiWarn && <span className="block text-[10px] text-orange-500 font-bold leading-tight">enter even</span>}
 
       </td>
 
       {/* Net amount */}
       <td className="border-b border-slate-100 dark:border-slate-700/50 px-2 py-1.5 text-center">
-        <span className="font-mono text-emerald-700 dark:text-emerald-400 text-[16px]">{fmt(net)}</span>
+        <span className="font-mono text-emerald-700 dark:text-emerald-400 text-[17px] sm:text-[19px] font-extrabold">{fmt(net)}</span>
       </td>
 
       {/* Discount — editable only in modifyMode, otherwise read-only */}
@@ -454,13 +610,13 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
         {modifyMode
           ? <input
             type="text"
-            min="0"
-            step="0.1"
-            className={`${inp} focus:bg-orange-50 dark:focus:bg-orange-900/20 rounded border border-orange-200 dark:border-orange-800 w-14`}
-            value={row.disc}
+            inputMode="decimal"
+            placeholder="0.0"
+            className={`${inp} focus:bg-orange-50 dark:focus:bg-orange-900/20 rounded border border-orange-200 dark:border-orange-800 w-14 font-bold`}
+            value={row.disc !== undefined && row.disc !== null ? row.disc : ''}
             onChange={e => onUpdate(idx, 'disc', e.target.value)}
           />
-          : <span className="text-orange-500 dark:text-orange-400 text-[12px] font-mono">
+          : <span className="text-orange-500 dark:text-orange-400 text-[13px] font-bold font-mono">
             {fmtN(row.disc)}
           </span>}
       </td>
@@ -857,22 +1013,29 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
 // Props:
 //   tabName  (string) – display title  e.g. "🐄 Patan Dairy"
 //   tabKey   (string) – storage key    e.g. "patandairy"
-const DairyOrderTable = ({ tabName, tabKey }) => {
+const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor }) => {
 
   // Auto-restore draft from Local Storage on load
   const [tabData, setTabData] = useState(() => {
     const draft = storageService.getActiveDraft()
     if (draft && draft.tabData && typeof draft.tabData === 'object') {
-      return {
-        patandairy: draft.tabData.patandairy || initTabState(),
-        arradairy: draft.tabData.arradairy || initTabState(),
-        otherdairy: draft.tabData.otherdairy || initTabState(),
-      }
+      const sanitized = {}
+      Object.keys(draft.tabData).forEach(k => {
+        const item = draft.tabData[k]
+        if (item && typeof item === 'object') {
+          sanitized[k] = {
+            ...item,
+            rows: sanitizeRows(item.rows, k),
+            extra: sanitizeRows(item.extra, k)
+          }
+        }
+      })
+      return sanitized
     }
     return {
-      patandairy: initTabState(),
-      arradairy: initTabState(),
-      otherdairy: initTabState(),
+      patandairy: initTabState('patandairy'),
+      arradairy: initTabState('arradairy'),
+      otherdairy: initTabState('otherdairy'),
     }
   })
 
@@ -883,8 +1046,20 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
   const [selectedDate, setSelectedDate] = useState(todayStr())
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [shareToast, setShareToast] = useState('')
+  const [saveToastInfo, setSaveToastInfo] = useState(null)
+  const [saveConfirmModal, setSaveConfirmModal] = useState(null)
 
-  const st = tabData[tabKey] || initTabState()
+  const st = tabData[tabKey] || initTabState(tabKey)
+
+  // Effective supply date is ALWAYS at least selectedDate + 1 day unless explicitly set to a later date
+  const effectiveSupplyDate = (st.supplyDate && st.supplyDate > selectedDate)
+    ? st.supplyDate
+    : getNextDayStr(selectedDate)
+
+  // Festival Demand Advisor for Supply Date (or Order Date)
+  const festivalAdvisor = useMemo(() => {
+    return getFestivalAdvisor(effectiveSupplyDate)
+  }, [effectiveSupplyDate])
 
   // ── Auto-save tabData to local storage whenever state changes ───────────────
   useEffect(() => {
@@ -936,14 +1111,20 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [hasActiveEntries, tabName])
 
-  const upd = patch => setTabData(prev => ({ ...prev, [tabKey]: { ...prev[tabKey], ...patch } }))
+  const upd = patch => setTabData(prev => ({ ...prev, [tabKey]: { ...(prev[tabKey] || initTabState(tabKey)), ...patch } }))
 
   // ── Row array helpers with activity logging ─────────────────────────────────
   const updRow = (arr, i, field, val) => {
-    const updated = arr.map((r, idx) => idx !== i ? r : { ...r, [field]: field === 'name' ? val : (parseFloat(val) || 0) })
+    let sanitizedVal = val
+    if (field === 'morn' || field === 'eve') {
+      sanitizedVal = sanitizeIntegerInput(val)
+    } else if (field === 'disc' || field === 'price') {
+      sanitizedVal = sanitizeDecimalInput(val)
+    }
+    const updated = arr.map((r, idx) => idx !== i ? r : { ...r, [field]: sanitizedVal })
     const item = arr[i]
     if (item && field !== 'name') {
-      logActivity('Update Qty', `Changed ${item.name} ${field} to ${val || 0}`, 'update')
+      logActivity('Update Qty', `Changed ${item.name} ${field} to ${sanitizedVal || 0}`, 'update')
     } else if (item && field === 'name') {
       logActivity('Rename Product', `Renamed product to "${val}"`, 'update')
     }
@@ -989,47 +1170,140 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
     : Math.max(0, finalAfterLess - payOnline)
 
   const handleOnlineChange = (val) => {
-    const online = parseFloat(val) || 0
-    upd({ payOnline: online, payMode: 'auto', payOffline: Math.max(0, finalAfterLess - online) })
+    const sanitized = sanitizeDecimalInput(val)
+    const online = parseFloat(sanitized) || 0
+    upd({ payOnline: sanitized, payMode: 'auto', payOffline: Math.max(0, finalAfterLess - online) })
     logActivity('Payment Online', `Set Online payment to ₹${online}`, 'update')
   }
 
   const handleOfflineChange = (val) => {
-    const offline = parseFloat(val) || 0
-    upd({ payOffline: offline, payMode: 'manual' })
+    const sanitized = sanitizeDecimalInput(val)
+    const offline = parseFloat(sanitized) || 0
+    upd({ payOffline: sanitized, payMode: 'manual' })
     logActivity('Payment Offline', `Set Offline payment to ₹${offline}`, 'update')
   }
 
   const handleLessAmtChange = (val) => {
-    const v = parseFloat(val) || 0
-    upd({ lessAmt: v })
+    const sanitized = sanitizeDecimalInput(val)
+    const v = parseFloat(sanitized) || 0
+    upd({ lessAmt: sanitized })
     logActivity('Less Amount', `Set discount/less amount to ₹${v}`, 'update')
     try { localStorage.setItem(LAST_LESS_KEY, String(v)) } catch { }
   }
 
-  // ── Save / Load ────────────────────────────────────────────────────────────
-  const handleSave = () => {
+  // ── Save / Overwrite / Refresh / Load ─────────────────────────────────────────
+  const handleSaveInitiate = () => {
+    const h = loadHistory(), key = tabKey + '_' + selectedDate
+    const existingRecord = h[key]
+
+    if (existingRecord) {
+      // Record exists for this date! Show confirmation modal with summary of changes
+      const oldTotals = calcTotals(existingRecord.rows || [])
+      const oldExtra = calcTotals(existingRecord.extra || [])
+      const oldGrossNet = oldTotals.net + oldExtra.net
+      const oldLess = Number(existingRecord.lessAmt) || 0
+      const oldFinal = Math.max(0, oldGrossNet - oldLess)
+
+      setSaveConfirmModal({
+        key,
+        dateStr: selectedDate,
+        formattedDate: formatIsoToDdMmYyyy(selectedDate),
+        oldTotal: oldFinal,
+        newTotal: finalAfterLess,
+      })
+    } else {
+      // First time saving for this date: save directly!
+      executeSave(false)
+    }
+  }
+
+  const executeSave = (isOverwrite = false) => {
     const h = loadHistory(), key = tabKey + '_' + selectedDate
     h[key] = {
       rows: st.rows, extra: st.extra,
       lessAmt: st.lessAmt, payOnline: st.payOnline, payOffline: st.payOffline, payMode: st.payMode,
-      supplyDate: st.supplyDate,
+      supplyDate: effectiveSupplyDate,
+      savedAt: new Date().toISOString(),
     }
     saveHistory(h)
-    logActivity('Save Bill', `Saved bill for date ${selectedDate} (Final Total: ₹${finalAfterLess})`, 'save')
-    setSaveMsg('✓ Saved!')
-    setTimeout(() => setSaveMsg(''), 2500)
+
+    const formattedDate = formatIsoToDdMmYyyy(selectedDate)
+    const logMsg = `${isOverwrite ? 'Overwrote' : 'Saved'} bill for date ${selectedDate} (Final Total: ₹${finalAfterLess})`
+    logActivity('Save Bill', logMsg, 'save')
+
+    const badgeText = isOverwrite ? '✓ Overwritten & Saved!' : '✓ Saved!'
+    setSaveMsg(badgeText)
+
+    setSaveToastInfo({
+      type: isOverwrite ? 'overwrite' : 'save',
+      title: isOverwrite ? 'Bill Overwritten & Updated' : 'Bill Saved Successfully',
+      message: `${tabName} • Order Date: ${formattedDate} • Total: ₹${finalAfterLess}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+
+    setSaveConfirmModal(null)
+    setTimeout(() => setSaveMsg(''), 3000)
+    setTimeout(() => setSaveToastInfo(null), 4500)
+  }
+
+  const handleRefresh = () => {
+    const clearedRows = st.rows.map(r => ({ ...r, morn: '' }))
+    const clearedExtra = st.extra.map(r => ({ ...r, morn: '' }))
+
+    upd({
+      rows: clearedRows,
+      extra: clearedExtra,
+      lessAmt: 0,
+      payOnline: 0,
+      payOffline: 0,
+      payMode: 'auto',
+    })
+
+    logActivity('Refresh Form', 'Cleared all written order quantities and payments', 'update')
+
+    setSaveToastInfo({
+      type: 'refresh',
+      title: 'Form Refreshed & Cleared',
+      message: `All typed quantities in ${tabName} have been cleared.`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    setTimeout(() => setSaveToastInfo(null), 3500)
   }
 
   const handleLoad = (data, dateStr) => {
+    const targetDate = dateStr || selectedDate
+    const loadedSupply = (data.supplyDate && data.supplyDate > targetDate)
+      ? data.supplyDate
+      : getNextDayStr(targetDate)
+
     upd({
-      rows: data.rows, extra: data.extra,
+      rows: sanitizeRows(data.rows),
+      extra: sanitizeRows(data.extra),
       lessAmt: data.lessAmt || 0, payOnline: data.payOnline || 0,
       payOffline: data.payOffline || 0, payMode: data.payMode || 'auto',
-      supplyDate: data.supplyDate || tomorrowStr(),
+      supplyDate: loadedSupply,
     })
-    logActivity('Restore Bill', `Restored saved record from ${dateStr}`, 'restore')
+    logActivity('Restore Bill', `Restored saved record from ${targetDate}`, 'restore')
     if (dateStr) setSelectedDate(dateStr)
+
+    setSaveToastInfo({
+      type: 'restore',
+      title: 'Bill Restored from History',
+      message: `${tabName} • Order Date: ${formatIsoToDdMmYyyy(targetDate)}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    setTimeout(() => setSaveToastInfo(null), 3500)
+  }
+
+  const handleResetProducts = () => {
+    const defaultList = getDefaultProductsForTab(tabKey)
+    upd({
+      rows: defaultList.map(mkRow),
+      extra: defaultList.map(mkRow)
+    })
+    logActivity('Reset Catalog', 'Restored default milk, dahi, and lassi product catalog', 'update')
+    setSaveMsg('✓ Reset to default products list!')
+    setTimeout(() => setSaveMsg(''), 2500)
   }
 
   // ── Share / Summary helpers ─────────────────────────────────────────────────
@@ -1067,7 +1341,7 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
     return {
       tabName,
       dateLabel: fmtDateLabel(selectedDate),
-      supplyDateLabel: fmtDateLabel(st.supplyDate || tomorrowStr()),
+      supplyDateLabel: fmtDateLabel(effectiveSupplyDate),
       rows: st.rows, extra: st.extra,
       allMilkL, allDahiKg, finalDisc, finalNet,
       lessAmt, finalAfterLess, payOnline, payOffline,
@@ -1141,15 +1415,15 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
             )}
 
             {/* Subtotal row */}
-            <tr className="bg-slate-50 dark:bg-slate-700/30">
-              <td colSpan={3}
-                className="text-left px-20 py-3 text-[15px] font-semibold text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
+            <tr className="bg-slate-100/90 dark:bg-slate-700/60 border-t-2 border-slate-300 dark:border-slate-600">
+              <td colSpan={4}
+                className="sticky left-0 z-10 bg-slate-100 dark:bg-slate-700/90 text-left pl-3 sm:pl-8 pr-3 py-3.5 text-[15px] sm:text-[18px] font-bold text-slate-800 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700">
                 {isExtra ? 'Extra subtotal' : 'Main subtotal'}
               </td>
-              <td className="py-3 text-center border-t border-slate-200 dark:border-slate-700">
-                <span className="font-semibold text-[18px] font-mono text-emerald-600 dark:text-emerald-400">{fmt(totals.net)}</span>
+              <td className="py-3.5 text-center">
+                <span className="font-extrabold text-[20px] sm:text-[22px] font-mono text-emerald-600 dark:text-emerald-400">{fmt(totals.net)}</span>
               </td>
-              <td colSpan={modifyMode ? 2 : 1} className="border-t border-slate-200 dark:border-slate-700"></td>
+              <td colSpan={modifyMode ? 2 : 1}></td>
             </tr>
           </tbody>
         </table>
@@ -1169,40 +1443,57 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
         <div>
           <div className="font-display font-semibold text-slate-800 dark:text-slate-100 text-xl">{tabName} — Order Sheet</div>
-          <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-0.5 flex items-center gap-2.5 flex-wrap">
+          <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <span>📅 Order: {fmtDateLabel(selectedDate)}</span>
             <span>•</span>
-            <span>🚚 Supply: {fmtDateLabel(st.supplyDate || tomorrowStr())}</span>
+            <span>🚚 Supply: {fmtDateLabel(effectiveSupplyDate)}</span>
+            
           </div>
+
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Modify: edit product names, prices; add/delete/reorder rows */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Modify: standard size, solid black text */}
           <button onClick={() => setModifyMode(v => !v)}
-            className={`px-3 py-1.5 rounded-xl text-xm font-semibold border transition-all
+            className={`px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer active:scale-95 shadow-2xs whitespace-nowrap text-black
               ${modifyMode
-                ? 'bg-red-300  text-slate-800 border-amber-200 dark:border-amber-800'
-                : 'bg-red-500  text-slate-800 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
+                ? 'bg-red-300 border-red-400'
+                : 'bg-red-500 border-red-600 hover:bg-red-600'}`}>
             {modifyMode ? '✓ Modify Save' : '⚙ Modify'}
           </button>
 
-          {/* Edit: enter morning / evening quantities */}
+          {/* Edit: 1.8x enlarged size */}
           <button onClick={() => setEditMode(v => !v)}
-            className={`px-3 py-2 rounded-xl text-xl font-semibold border transition-all
+            className={`px-6 sm:px-7 py-2.5 sm:py-3 rounded-2xl text-base sm:text-lg md:text-xl font-black border-2 transition-all cursor-pointer active:scale-95 shadow-md whitespace-nowrap
               ${editMode
-                ? 'bg-green-400 text-black border-blue-200 '
-                : 'bg-yellow-400  text-slate-800  border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
+                ? 'bg-emerald-400 text-slate-950 border-emerald-500 font-extrabold'
+                : 'bg-yellow-400 text-slate-900 border-yellow-500 hover:bg-yellow-500'}`}>
             {editMode ? '✓ Edit Save' : '✏ Edit orders'}
+          </button>
+
+          {/* Refresh: enlarged sky-blue icon-only button on the right side */}
+          <button
+            onClick={handleRefresh}
+            title="Clear all written quantities"
+            className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-sky-400 hover:bg-sky-500 active:bg-sky-600 text-slate-950 border border-sky-500 transition-all flex items-center justify-center cursor-pointer active:scale-95 shadow-2xs shrink-0 whitespace-nowrap"
+          >
+            <span className="text-xl sm:text-2xl leading-none">🔄</span>
           </button>
         </div>
       </div>
 
       {/* Modify mode hint */}
       {modifyMode && (
-        <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-100 dark:border-orange-800">
+        <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-100 dark:border-orange-800 flex items-center justify-between flex-wrap gap-2">
           <span className="text-xs text-orange-600 dark:text-orange-400">
-            ⚙ Modify mode: edit product names, prices, and per-row discounts. Default per product: <strong>discAmt</strong> from product definition.
+            ⚙ Modify mode: edit product names, prices, and per-row discounts.
           </span>
+          <button
+            onClick={handleResetProducts}
+            className="text-xs font-bold px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-colors shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+          >
+            ↺ Reset to Old Products
+          </button>
         </div>
       )}
 
@@ -1283,8 +1574,10 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
             ➖ Less Amount
           </label>
           <input
-            type="text" min="0" step="0.5" placeholder="0"
-            value={st.lessAmt || ''}
+            type="text"
+            inputMode="decimal"
+            placeholder="0"
+            value={st.lessAmt !== undefined && st.lessAmt !== null ? st.lessAmt : ''}
             onChange={e => handleLessAmtChange(e.target.value)}
             className="w-28 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-rose-400"
           />
@@ -1296,17 +1589,17 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
       </div>
 
 
-      {/* ── Summary chips: Milk L | Dahi kg | Discount | Grand total ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-4 py-3 border-t border-slate-100 dark:border-slate-700">
+      {/* ── Summary chips: Milk L | Dahi kg | Discount | Grand total (Compact & Smaller) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-3 sm:px-4 py-2.5 border-t border-slate-100 dark:border-slate-700">
         {[
           { label: 'Total milk', value: `${fmtN(allMilkL)} L`, cls: 'text-blue-600 dark:text-blue-400' },
           { label: 'Total dahi', value: `${fmtN(allDahiKg)} kg`, cls: 'text-amber-600 dark:text-amber-400' },
           { label: 'Total discount', value: `-${fmt(finalDisc)}`, cls: 'text-red-500 dark:text-red-400' },
           { label: 'Grand total', value: fmt(finalAfterLess), cls: 'text-emerald-600 dark:text-emerald-400' },
         ].map(({ label, value, cls }) => (
-          <div key={label} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
-            <p className="text-[17px] text-slate-500 dark:text-slate-400">{label}</p>
-            <p className={`text-[19px] font-mono font-bold mt-0.5 ${cls}`}>{value}</p>
+          <div key={label} className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2 sm:p-2.5 border border-slate-200/60 dark:border-slate-700/60">
+            <p className="text-[11px] sm:text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+            <p className={`text-sm sm:text-base font-mono font-bold mt-0.5 ${cls}`}>{value}</p>
           </div>
         ))}
       </div>
@@ -1316,21 +1609,24 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
       {/* ═══════════════════════════════════════════════════════════════════════
           PAYMENT MODE  —  Online / Offline split
           ═══════════════════════════════════════════════════════════════════════ */}
-      <button onClick={() => setIsOnline(p => !p)}
-        className="px-10 py-3 mb-4  rounded-xl text-xm font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
-
-        {!isOnline ? 'Online Payment' : 'Payment Mode Hide'}
-      </button>
+      <div className="px-4 py-1.5">
+        <button onClick={() => setIsOnline(p => !p)}
+          className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors shadow-2xs">
+          {!isOnline ? 'Online Payment' : 'Payment Mode Hide'}
+        </button>
+      </div>
 
       {isOnline && (
         <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-blue-50/40 dark:bg-blue-900/10">
-          <p className="text-[15px] font-semibold text-blue-700 dark:text-blue-300 mb-2">💳 Payment Mode</p>
+          <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">💳 Payment Mode</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Online</label>
               <input
-                type="text" min="0" step="0.5" placeholder="0"
-                value={st.payOnline || ''}
+                type="text"
+                inputMode="decimal"
+                placeholder="0"
+                value={st.payOnline !== undefined && st.payOnline !== null ? st.payOnline : ''}
                 onChange={e => handleOnlineChange(e.target.value)}
                 className="w-full px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
               />
@@ -1340,8 +1636,10 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
                 Offline {st.payMode !== 'manual' && <span className="text-[10px] text-slate-400">(auto)</span>}
               </label>
               <input
-                type="text" min="0" step="0.5" placeholder="0"
-                value={st.payMode === 'manual' ? (st.payOffline || '') : (payOffline || '')}
+                type="text"
+                inputMode="decimal"
+                placeholder="0"
+                value={st.payMode === 'manual' ? (st.payOffline !== undefined && st.payOffline !== null ? st.payOffline : '') : (payOffline || '')}
                 onChange={e => handleOfflineChange(e.target.value)}
                 className="w-full px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
               />
@@ -1358,56 +1656,217 @@ const DairyOrderTable = ({ tabName, tabKey }) => {
       }
 
 
-      {/* ── Save + Share bar ── */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/20 flex-wrap relative">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Order Date:</span>
-          <input type="date" value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            className="px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400" />
+      {/* ── Save + Share bar (Row 1: Order Date + Share | Row 2: Supply Date + Save) ── */}
+      <div className="flex flex-col gap-3 px-3 sm:px-4 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40">
+        
+        {/* Row 1: Order Date (left) + Share Button (right) */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3.5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xs relative cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex-1 min-w-0 max-w-[50%]">
+            <span className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-200 whitespace-nowrap">Order:</span>
+            <div className="relative flex items-center w-full justify-center">
+              <div className="px-2.5 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-mono font-black bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
+                <span>{formatIsoToDdMmYyyy(selectedDate)}</span>
+              </div>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => {
+                  const newDate = e.target.value
+                  if (!newDate) return
+                  setSelectedDate(newDate)
+                  const nextSupply = getNextDayStr(newDate)
+                  upd({ supplyDate: nextSupply })
+                  logActivity('Order Date', `Changed order date to ${newDate}, supply date set to ${nextSupply}`, 'update')
+                }}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 relative flex-1 min-w-0 max-w-[50%] justify-end">
+            <button
+              onClick={() => setShowShareMenu(v => !v)}
+              className="w-full py-2.5 sm:py-3 rounded-2xl text-base sm:text-lg font-black bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95"
+            >
+              📤 Share
+            </button>
+            {showShareMenu && (
+              <div className="absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-2xl overflow-hidden z-20">
+                <button
+                  onClick={handleOpenSummaryPage}
+                  className="w-full text-left px-4 py-3 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/70 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2"
+                >
+                  🧾 Open Summary Page <span className="text-xs text-slate-400 font-normal">(Print / PDF)</span>
+                </button>
+                <button
+                  onClick={handleShareText}
+                  className="w-full text-left px-4 py-3 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/70 flex items-center gap-2"
+                >
+                  💬 Share as Text
+                </button>
+              </div>
+            )}
+            {shareToast && (
+              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 animate-fadeIn absolute right-0 -top-8 whitespace-nowrap shadow-sm z-30">
+                {shareToast}
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Supply Date:</span>
-          <input type="date" value={st.supplyDate || tomorrowStr()}
-            onChange={e => {
-              const val = e.target.value
-              upd({ supplyDate: val })
-              logActivity('Supply Date', `Updated supply date to ${val}`, 'update')
-            }}
-            className="px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400" />
+        {/* Row 2: Supply Date (left) + Save Button (right) */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3.5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xs relative cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex-1 min-w-0 max-w-[50%]">
+            <span className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-200 whitespace-nowrap">Supply:</span>
+            <div className="relative flex items-center w-full justify-center">
+              <div className="px-2.5 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-mono font-black bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
+                <span>{formatIsoToDdMmYyyy(effectiveSupplyDate)}</span>
+              </div>
+              <input
+                type="date"
+                value={effectiveSupplyDate}
+                onChange={e => {
+                  const val = e.target.value
+                  if (!val) return
+                  upd({ supplyDate: val })
+                  logActivity('Supply Date', `Updated supply date to ${val}`, 'update')
+                }}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 relative flex-1 min-w-0 max-w-[50%] justify-end">
+            <button
+              onClick={handleSaveInitiate}
+              className="w-full py-2.5 sm:py-3 rounded-2xl text-base sm:text-lg font-black bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95"
+            >
+              💾 Save
+            </button>
+            {saveMsg && (
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 animate-fadeIn absolute right-0 -top-8 whitespace-nowrap shadow-sm z-30">
+                {saveMsg}
+              </span>
+            )}
+          </div>
         </div>
+      </div>
 
-        <button onClick={handleSave}
-          className="px-4 py-1.5 rounded-xl text-lg font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
-          💾 Save
-        </button>
-        {saveMsg && <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{saveMsg}</span>}
-
-        {/* Share button + dropdown menu with both options */}
-        <div className="relative ml-auto">
-          <button onClick={() => setShowShareMenu(v => !v)}
-            className="px-4 py-1.5 rounded-xl text-xl font-semibold bg-indigo-500 hover:bg-indigo-600 text-white transition-colors">
-            📤 Share
+      {/* ── Toast Notification Popup on Save / Overwrite / Refresh / Restore ── */}
+      {saveToastInfo && (
+        <div className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 max-w-sm w-full bg-slate-900/95 dark:bg-slate-950/95 text-white p-4 rounded-2xl shadow-2xl border border-slate-700/80 flex items-start gap-3 backdrop-blur-md animate-bounceIn">
+          <div className={`p-2.5 rounded-xl text-xl flex items-center justify-center ${saveToastInfo.type === 'overwrite' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : saveToastInfo.type === 'restore' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : saveToastInfo.type === 'refresh' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+            {saveToastInfo.type === 'overwrite' ? '⚠️' : saveToastInfo.type === 'restore' ? '📜' : saveToastInfo.type === 'refresh' ? '🔄' : '💾'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-sm font-bold text-slate-100">{saveToastInfo.title}</p>
+              <span className="text-[10px] text-slate-400 font-mono">{saveToastInfo.time}</span>
+            </div>
+            <p className="text-xs text-slate-300 mt-1 font-medium leading-snug">{saveToastInfo.message}</p>
+          </div>
+          <button
+            onClick={() => setSaveToastInfo(null)}
+            className="text-slate-400 hover:text-white text-base px-1 cursor-pointer"
+            title="Dismiss"
+          >
+            ✕
           </button>
-          {showShareMenu && (
-            <div className="absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg overflow-hidden z-20">
-              <button onClick={handleOpenSummaryPage}
-                className="w-full text-left px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
-                🧾 Open Summary Page <span className="text-[11px] text-slate-400">(Print / Save as PDF)</span>
+        </div>
+      )}
+
+      {/* ── Overwrite Confirmation Modal (Yes / No) ── */}
+      {saveConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 max-w-sm w-full shadow-2xl animate-scaleUp">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">Overwrite Saved Record?</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">Order Date: {saveConfirmModal.formattedDate}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">
+              A bill for <strong className="text-slate-800 dark:text-slate-100">{saveConfirmModal.formattedDate}</strong> already exists in history. Overwrite with new changes?
+            </p>
+
+            <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-3 text-xs mb-4 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5 font-mono">
+              <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                <span>Previous Saved Total:</span>
+                <span className="line-through font-bold text-slate-600 dark:text-slate-300">₹{fmt(saveConfirmModal.oldTotal)}</span>
+              </div>
+              <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-extrabold text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5">
+                <span>New Updated Total:</span>
+                <span>₹{fmt(saveConfirmModal.newTotal)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setSaveConfirmModal(null)}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95"
+              >
+                ✕ Cancel
               </button>
-              <button onClick={handleShareText}
-                className="w-full text-left px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
-                💬 Share as Text
+              <button
+                onClick={() => executeSave(true)}
+                className="px-3.5 py-2 rounded-xl text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-md transition-all cursor-pointer active:scale-95 flex items-center gap-1"
+              >
+                ✓ Yes, Overwrite & Save
               </button>
             </div>
-          )}
+          </div>
         </div>
-        {shareToast && <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 w-full">{shareToast}</span>}
-      </div>
+      )}
 
       {/* ── History panel ── */}
       <HistoryPanel tabKey={tabKey} onLoad={handleLoad} />
+
+      {/* ── Phone-First Floating Bottom Action Bar (Mobile Screens Only) ── */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 px-3 py-2 shadow-2xl flex items-center justify-between gap-2">
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-tight">Grand Total</span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400 leading-tight">
+              {fmt(finalAfterLess)}
+            </span>
+            <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 font-mono">
+              {fmtN(allMilkL)}L
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => setEditMode(v => !v)}
+            className={`px-3 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1 ${
+              editMode
+                ? 'bg-emerald-500 text-slate-950 font-black'
+                : 'bg-yellow-400 text-slate-900 font-bold'
+            }`}
+          >
+            <span>{editMode ? '✓ Done' : '✏ Edit'}</span>
+          </button>
+
+          <button
+            onClick={handleSaveInitiate}
+            className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 active:bg-emerald-700 text-white shadow-md cursor-pointer active:scale-95 flex items-center gap-1"
+          >
+            <span>💾 Save</span>
+          </button>
+
+          <button
+            onClick={() => setShowShareMenu(v => !v)}
+            className="p-2 rounded-xl text-xs font-black bg-indigo-600 active:bg-indigo-700 text-white shadow-md cursor-pointer active:scale-95"
+            title="Share"
+          >
+            <span>📤</span>
+          </button>
+        </div>
+      </div>
 
     </div>
   )

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Info, X, Sparkles, Clock, CheckCircle, Tag, ShieldCheck, Cpu, Code2 } from 'lucide-react'
+import { Info, X, Sparkles, Clock, CheckCircle, ShieldCheck, Code2 } from 'lucide-react'
 import { APP_VERSIONS, APP_INFO } from '../versions'
 
 const AboutVersionDrawer = ({ isOpen, onClose }) => {
@@ -45,9 +45,11 @@ const AboutVersionDrawer = ({ isOpen, onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-2xl bg-slate-100 hover:bg-red-500 hover:text-white dark:bg-slate-700 dark:hover:bg-red-600 dark:hover:text-white text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-slate-600 shadow-xs transition-all active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500"
+            title="Close drawer"
+            aria-label="Close drawer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5]" />
           </button>
         </div>
 

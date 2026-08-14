@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { History, X, Search, Trash2, Clock, CheckCircle2, RefreshCw, Filter, ArrowRightLeft, FileText } from 'lucide-react'
+import { History, X, Search, Trash2, Clock, CheckCircle2, Filter, FileText } from 'lucide-react'
 import { storageService } from '../services/storageService'
 
-const ActivityLogModal = ({ isOpen, onClose, onRestoreDraft }) => {
+const ActivityLogModal = ({ isOpen, onClose }) => {
   const [logs, setLogs] = useState([])
   const [filterTab, setFilterTab] = useState('all')
   const [filterType, setFilterType] = useState('all')
@@ -43,12 +43,11 @@ const ActivityLogModal = ({ isOpen, onClose, onRestoreDraft }) => {
       if (diffMins < 1) return 'Just now'
       if (diffMins < 60) return `${diffMins}m ago`
       if (diffHours < 24) return `${diffHours}h ago`
-      return date.toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      const dd = String(date.getDate()).padStart(2, '0')
+      const mm = String(date.getMonth() + 1).padStart(2, '0')
+      const yyyy = date.getFullYear()
+      const time = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+      return `${dd}/${mm}/${yyyy} ${time}`
     } catch {
       return isoString
     }
@@ -108,9 +107,11 @@ const ActivityLogModal = ({ isOpen, onClose, onRestoreDraft }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-2xl bg-slate-100 hover:bg-red-500 hover:text-white dark:bg-slate-700 dark:hover:bg-red-600 dark:hover:text-white text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-slate-600 shadow-xs transition-all active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500"
+            title="Close modal (Esc)"
+            aria-label="Close modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5]" />
           </button>
         </div>
 
