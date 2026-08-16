@@ -16,6 +16,8 @@ const FestivalDemandBanner = ({ selectedDate, supplyDate, onOpenAdvisor }) => {
   const alert = reminderData.primaryAlert
   if (!alert) return null
 
+  const secondaryAlert = reminderData.activeAlerts?.find(a => a.id !== alert.id)
+
   // Format nice human date
   const festDateParts = alert.date.split('-')
   const dateFormatted = `${festDateParts[2]}/${festDateParts[1]}/${festDateParts[0]}`
@@ -39,6 +41,11 @@ const FestivalDemandBanner = ({ selectedDate, supplyDate, onOpenAdvisor }) => {
               <span className="font-display font-bold text-sm sm:text-base text-white">
                 {alert.name} ({alert.hindiName})
               </span>
+              {secondaryAlert && (
+                <span className="px-2 py-0.5 rounded-full bg-black/25 text-white/95 font-semibold text-[10px] sm:text-[11px] backdrop-blur-xs">
+                  {secondaryAlert.diffDays === 0 ? 'Today' : secondaryAlert.timingLabel}: {secondaryAlert.name}
+                </span>
+              )}
             </div>
             <p className="text-xs text-white/90 font-body flex items-center gap-1.5">
               <span>📅 Date: <strong>{dateFormatted}</strong></span>

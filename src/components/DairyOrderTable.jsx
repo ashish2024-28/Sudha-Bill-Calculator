@@ -1387,46 +1387,46 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
     const totals = isExtra ? extraTotals : mainTotals
 
     return (
-      <div className="overflow-x-auto">
-        <table className="w-full" style={{ tableLayout: 'fixed', borderCollapse: 'collapse' }}>
-          <THead showDel={modifyMode} />
-          <tbody>
-            {rows.map((r, i) => (
-              <ProductRow
-                key={r.id} row={r} idx={i} total={rows.length}
-                modifyMode={modifyMode} editMode={editMode}
-                onUpdate={(idx, f, v) => setRows(updRow(rows, idx, f, v))}
-                onDelete={idx => setRows(delRow(rows, idx))}
-                onMoveUp={idx => setRows(moveRow(rows, idx, -1))}
-                onMoveDown={idx => setRows(moveRow(rows, idx, +1))}
-              />
-            ))}
+      <div>
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+            <THead showDel={modifyMode} />
+            <tbody>
+              {rows.map((r, i) => (
+                <ProductRow
+                  key={r.id} row={r} idx={i} total={rows.length}
+                  modifyMode={modifyMode} editMode={editMode}
+                  onUpdate={(idx, f, v) => setRows(updRow(rows, idx, f, v))}
+                  onDelete={idx => setRows(delRow(rows, idx))}
+                  onMoveUp={idx => setRows(moveRow(rows, idx, -1))}
+                  onMoveDown={idx => setRows(moveRow(rows, idx, +1))}
+                />
+              ))}
 
-            {/* Add row (modifyMode only) */}
-            {modifyMode && (
-              <tr>
-                <td colSpan={9} className="px-3 py-2">
-                  <button
-                    onClick={() => setRows([...rows, mkRow({ id: uid(), name: 'New product', price: 0, calcMode: 'kg' })])}
-                    className="text-xs text-slate-500 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 hover:border-slate-400 transition-colors"
-                  >+ Add row</button>
-                </td>
-              </tr>
-            )}
+              {/* Add row (modifyMode only) */}
+              {modifyMode && (
+                <tr>
+                  <td colSpan={9} className="px-3 py-2">
+                    <button
+                      onClick={() => setRows([...rows, mkRow({ id: uid(), name: 'New product', price: 0, calcMode: 'kg' })])}
+                      className="text-xs text-slate-500 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 hover:border-slate-400 transition-colors"
+                    >+ Add row</button>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-            {/* Subtotal row */}
-            <tr className="bg-slate-100/90 dark:bg-slate-700/60 border-t-2 border-slate-300 dark:border-slate-600">
-              <td colSpan={4}
-                className="sticky left-0 z-10 bg-slate-100 dark:bg-slate-700/90 text-left pl-3 sm:pl-8 pr-3 py-3.5 text-[15px] sm:text-[18px] font-bold text-slate-800 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700">
-                {isExtra ? 'Extra subtotal' : 'Main subtotal'}
-              </td>
-              <td className="py-3.5 text-center">
-                <span className="font-extrabold text-[20px] sm:text-[22px] font-mono text-emerald-600 dark:text-emerald-400">{fmt(totals.net)}</span>
-              </td>
-              <td colSpan={modifyMode ? 2 : 1}></td>
-            </tr>
-          </tbody>
-        </table>
+        {/* Subtotal row - static and fixed below table, not affected by horizontal scrolling */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-slate-100/90 dark:bg-slate-700/60 border-t-2 border-slate-300 dark:border-slate-600">
+          <span className="text-[16px] sm:text-[18px] font-bold text-slate-800 dark:text-slate-100">
+            {isExtra ? 'Extra subtotal' : 'Main subtotal'}
+          </span>
+          <span className="font-extrabold text-[20px] sm:text-[24px] font-mono text-emerald-600 dark:text-emerald-400">
+            {fmt(totals.net)}
+          </span>
+        </div>
       </div>
     )
   }
@@ -1447,7 +1447,6 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
             <span>📅 Order: {fmtDateLabel(selectedDate)}</span>
             <span>•</span>
             <span>🚚 Supply: {fmtDateLabel(effectiveSupplyDate)}</span>
-            
           </div>
 
         </div>
@@ -1824,49 +1823,6 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
 
       {/* ── History panel ── */}
       <HistoryPanel tabKey={tabKey} onLoad={handleLoad} />
-
-      {/* ── Phone-First Floating Bottom Action Bar (Mobile Screens Only) ── */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 px-3 py-2 shadow-2xl flex items-center justify-between gap-2">
-        <div className="flex flex-col min-w-0">
-          <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider leading-tight">Grand Total</span>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400 leading-tight">
-              {fmt(finalAfterLess)}
-            </span>
-            <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 font-mono">
-              {fmtN(allMilkL)}L
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={() => setEditMode(v => !v)}
-            className={`px-3 py-2 rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1 ${
-              editMode
-                ? 'bg-emerald-500 text-slate-950 font-black'
-                : 'bg-yellow-400 text-slate-900 font-bold'
-            }`}
-          >
-            <span>{editMode ? '✓ Done' : '✏ Edit'}</span>
-          </button>
-
-          <button
-            onClick={handleSaveInitiate}
-            className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 active:bg-emerald-700 text-white shadow-md cursor-pointer active:scale-95 flex items-center gap-1"
-          >
-            <span>💾 Save</span>
-          </button>
-
-          <button
-            onClick={() => setShowShareMenu(v => !v)}
-            className="p-2 rounded-xl text-xs font-black bg-indigo-600 active:bg-indigo-700 text-white shadow-md cursor-pointer active:scale-95"
-            title="Share"
-          >
-            <span>📤</span>
-          </button>
-        </div>
-      </div>
 
     </div>
   )

@@ -578,7 +578,7 @@ export const getFestivalAdvisor = (dateIso, customFestivals = null, includeCompl
     }
 
     let timingLabel = ''
-    let isImminent = false // 0, 1, 2, or 3 days before
+    let isImminent = false // 0, 1, or 2 days before
     let badgeType = 'upcoming'
     const isCompleted = diffDays < 0 && !isDuringMultiDay
 
@@ -594,11 +594,7 @@ export const getFestivalAdvisor = (dateIso, customFestivals = null, includeCompl
       timingLabel = 'In 2 Days (परसों)'
       isImminent = true
       badgeType = '2days'
-    } else if (diffDays === 3) {
-      timingLabel = 'In 3 Days'
-      isImminent = true
-      badgeType = '3days'
-    } else if (diffDays > 3 && diffDays <= 7) {
+    } else if (diffDays > 2 && diffDays <= 7) {
       timingLabel = `In ${diffDays} days`
       badgeType = 'week'
     } else if (diffDays > 7 && diffDays <= 30) {
@@ -630,15 +626,32 @@ export const getFestivalAdvisor = (dateIso, customFestivals = null, includeCompl
   // Past completed festivals are excluded from upcoming alerts and default calendar view!
   const upcomingFestivals = scoredFestivals.filter(f => !f.isCompleted)
 
-  // 2. Active Reminders (0, 1, 2, or 3 days away)
-  const activeAlerts = upcomingFestivals.filter(f => f.diffDays >= 0 && f.diffDays <= 3)
+  // 2. Active Reminders (Within 2 days: 0, 1, or 2 days away; otherwise blank)
+  const activeAlerts = upcomingFestivals.filter(f => f.diffDays >= 0 && f.diffDays <= 2)
 
   // 3. Past Completed Festivals (for archive or reference)
   const completedFestivals = scoredFestivals
     .filter(f => f.isCompleted)
     .sort((a, b) => b.diffDays - a.diffDays) // most recent past first
 
-  const primaryAlert = activeAlerts.length > 0 ? activeAlerts[0] : null
+  // Prioritize next day (tomorrow, diffDays === 1) if today also has a festival or if tomorrow is upcoming
+  let primaryAlert = null
+  if (activeAlerts.length > 0) {
+    const tomorrowFest = activeAlerts.find(f => f.diffDays === 1)
+    const todayFest = activeAlerts.find(f => f.diffDays === 0)
+    const in2DaysFest = activeAlerts.find(f => f.diffDays === 2)
+
+    if (tomorrowFest) {
+      primaryAlert = tomorrowFest
+    } else if (todayFest) {
+      primaryAlert = todayFest
+    } else if (in2DaysFest) {
+      primaryAlert = in2DaysFest
+    } else {
+      primaryAlert = activeAlerts[0]
+    }
+  }
+
   const nextClosestFestival = upcomingFestivals[0] || null
 
   return {
