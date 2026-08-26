@@ -6,18 +6,16 @@ import ExportImport from './components/ExportImport'
 import DairyOrderTable from './components/DairyOrderTable'
 import OtherDairyManager from './components/OtherDairyManager'
 import UpdateToast from './components/UpdateToast'
-import ActivityLogModal from './components/ActivityLogModal'
-import AboutVersionDrawer from './components/AboutVersionDrawer'
 import FestivalDemandBanner from './components/FestivalDemandBanner'
 import FestivalAdvisorModal from './components/FestivalAdvisorModal'
+import AboutModal from './components/AboutModal'
 import StorageFooter from './components/StorageFooter'
 
 function App() {
   const { darkMode, toggleDarkMode } = useTheme()
   const [activeTab, setActiveTab] = useState('patandairy')
-  const [isLogsOpen, setIsLogsOpen] = useState(false)
-  const [isAboutOpen, setIsAboutOpen] = useState(false)
   const [isFestivalAdvisorOpen, setIsFestivalAdvisorOpen] = useState(false)
+  const [isAboutOpen, setIsAboutOpen] = useState(false)
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
@@ -31,9 +29,8 @@ function App() {
       <Header
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
-        onOpenLogs={() => setIsLogsOpen(true)}
-        onOpenAbout={() => setIsAboutOpen(true)}
         onOpenFestivalAdvisor={() => setIsFestivalAdvisorOpen(true)}
+        onOpenAbout={() => setIsAboutOpen(true)}
       />
 
       <main className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-4 sm:space-y-6 pb-28 sm:pb-8">
@@ -67,7 +64,6 @@ function App() {
         {/* Dairy Order Table or Other Dairy Manager */}
         {activeTab === 'otherdairy' ? (
           <OtherDairyManager
-            onOpenLogs={() => setIsLogsOpen(true)}
             onOpenFestivalAdvisor={() => setIsFestivalAdvisorOpen(true)}
           />
         ) : (
@@ -75,7 +71,6 @@ function App() {
             key={activeTab}
             tabName={activeTab === 'patandairy' ? '🐄 Patna Dairy' : '🥛 Arra Dairy'}
             tabKey={activeTab}
-            onOpenLogs={() => setIsLogsOpen(true)}
             onOpenFestivalAdvisor={() => setIsFestivalAdvisorOpen(true)}
           />
         )}
@@ -85,27 +80,21 @@ function App() {
         {/* Storage & Memory Monitor in Footer */}
         <StorageFooter />
 
-        {/* Activity Log Modal */}
-        <ActivityLogModal
-          isOpen={isLogsOpen}
-          onClose={() => setIsLogsOpen(false)}
-        />
-
-        {/* About & Version Drawer */}
-        <AboutVersionDrawer
-          isOpen={isAboutOpen}
-          onClose={() => setIsAboutOpen(false)}
-        />
-
         {/* Festival & Demand Advisor Modal */}
         <FestivalAdvisorModal
           isOpen={isFestivalAdvisorOpen}
           onClose={() => setIsFestivalAdvisorOpen(false)}
         />
 
+        {/* About Application Modal */}
+        <AboutModal
+          isOpen={isAboutOpen}
+          onClose={() => setIsAboutOpen(false)}
+        />
+
         {/* Footer */}
         <footer className="text-center py-6 text-xs text-slate-400 dark:text-slate-500 font-body">
-          <p>Sudha Bill Calculator • Offline-First PWA • Auto-Saved Local Storage & Change Logs</p>
+          <p>Sudha Bill Calculator • Offline-First PWA • Auto-Saved Local Storage</p>
         </footer>
       </main>
     </div>

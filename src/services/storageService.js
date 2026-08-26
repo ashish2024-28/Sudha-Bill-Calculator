@@ -1,7 +1,6 @@
 const SETTINGS_KEY = 'sudha_bill_calculator_settings'
 const HISTORY_KEY = 'dairy_history_v4'
 const DRAFT_KEY = 'sudha_bill_active_draft_v5'
-const LOGS_KEY = 'sudha_bill_activity_logs_v1'
 const CUSTOM_DAIRIES_KEY = 'sudha_bill_custom_dairies_v1'
 const CUSTOM_FESTIVALS_KEY = 'sudha_bill_custom_festivals_v1'
 
@@ -195,48 +194,6 @@ export const storageService = {
     }
   },
 
-  // ─── Activity History & Change Logs ──────────────────────────────────────
-  getActivityLogs() {
-    try {
-      const data = localStorage.getItem(LOGS_KEY)
-      return data ? JSON.parse(data) : []
-    } catch (error) {
-      console.error('Failed to load activity logs:', error)
-      return []
-    }
-  },
-
-  addActivityLog(log) {
-    try {
-      const logs = this.getActivityLogs()
-      const newEntry = {
-        id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-        timestamp: new Date().toISOString(),
-        tab: log.tab || 'General',
-        action: log.action || 'Update',
-        details: log.details || '',
-        type: log.type || 'info', // 'info', 'update', 'save', 'delete', 'restore'
-      }
-      // Keep up to 200 most recent logs
-      const updated = [newEntry, ...logs].slice(0, 200)
-      localStorage.setItem(LOGS_KEY, JSON.stringify(updated))
-      return newEntry
-    } catch (error) {
-      console.error('Failed to add activity log:', error)
-      return null
-    }
-  },
-
-  clearActivityLogs() {
-    try {
-      localStorage.removeItem(LOGS_KEY)
-      return true
-    } catch (error) {
-      console.error('Failed to clear activity logs:', error)
-      return false
-    }
-  },
-
   exportToJSON(products) {
     const data = {
       exportedAt: new Date().toISOString(),
@@ -361,8 +318,6 @@ export const storageService = {
       let totalBytes = 0
       let historyBytes = 0
       let historyCount = 0
-      let logsBytes = 0
-      let logsCount = 0
       let draftBytes = 0
       let dairiesBytes = 0
       let dairiesCount = 0
@@ -386,12 +341,6 @@ export const storageService = {
               historyCount = Object.keys(parsed).length
             } catch { }
           }
-        } else if (key === LOGS_KEY || key.includes('activity_logs')) {
-          logsBytes += bytes
-          try {
-            const parsed = JSON.parse(val)
-            logsCount = Array.isArray(parsed) ? parsed.length : 0
-          } catch { }
         } else if (key === DRAFT_KEY || key.includes('active_draft')) {
           draftBytes += bytes
         } else if (key === CUSTOM_DAIRIES_KEY || key.includes('custom_dairies')) {
@@ -440,13 +389,6 @@ export const storageService = {
             bytes: draftBytes,
             formatted: formatBytes(draftBytes),
             detail: draftBytes > 0 ? 'Live auto-saved' : 'Empty'
-          },
-          {
-            label: 'Activity & Audit Logs',
-            key: 'logs',
-            bytes: logsBytes,
-            formatted: formatBytes(logsBytes),
-            detail: `${logsCount} audit logs`
           },
           {
             label: 'Custom Dairies',

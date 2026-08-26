@@ -41,6 +41,9 @@ export const NAMASTE_INDIA_BASE_PRODUCTS = [
 
   // Lassi: user enters packets. ₹10 per packet with ₹1.1 discount
   { id: 'lassi10', name: 'Lassi 10 Rs',  price: 10, calcMode: 'pack', discAmt: 1.1 },
+
+  // Paneer: user enters packets. ₹95 per packet with ₹11 discount
+  { id: 'paneer95', name: 'Paneer 200g',      price: 95, calcMode: 'pack', discAmt: 11 },
 ]
 
 export const BASE_PRODUCTS = SUDHA_BASE_PRODUCTS
@@ -136,6 +139,7 @@ const mkRow = ({ id, name, price, calcMode, discAmt }) => {
   if (id === 'dahi200') disc = 1.6
   if (id === 'dahi400') disc = 2.9
   if (id === 'lassi10' || (name && String(name).toLowerCase().includes('lassi'))) disc = 1.1
+  if (id === 'paneer95' || (name && String(name).toLowerCase().includes('paneer'))) disc = 11.0
   return {
     id, name,
     price: Number(price),
@@ -230,6 +234,21 @@ const calcRow = (r) => {
     }
   }
 
+  if (r.id === 'paneer95' || (r.name && String(r.name).toLowerCase().includes('paneer'))) {
+    // ── Paneer (95 Rs pack, 11 Rs discount per packet) ────────────────────────
+    // qty = number of packets entered
+    const gross = qty * price              // qty × ₹95
+    const discAmt = disc * qty             // qty × ₹11
+    return {
+      qty, packets: qty,
+      actualKg: 0,                         // pack-based product, not loose liquid milk
+      gross, discAmt,
+      net: Math.max(0, gross - discAmt),
+      inputLabel: 'pkt',
+      kgLabel: `${fmtN(qty)} pkt`,
+    }
+  }
+
   if (r.calcMode === 'kg') {
     // ── Milk 1 kg/L packs ───────────────────────────────────────────────────
     // qty = actual kg/L entered
@@ -270,8 +289,9 @@ const calcTotals = rows =>
 
     const isDahi = r.calcMode === 'dahi' || r.id === 'dahi100' || r.id === 'dahi200' || r.id === 'dahi400'
     const isDrink = r.id === 'lassi10' || (r.name && String(r.name).toLowerCase().includes('lassi'))
+    const isPaneer = r.id === 'paneer95' || (r.name && String(r.name).toLowerCase().includes('paneer'))
     return {
-      milkKg: acc.milkKg + (!isDahi && !isDrink ? c.actualKg : 0),
+      milkKg: acc.milkKg + (!isDahi && !isDrink && !isPaneer ? c.actualKg : 0),
       dahiKg: acc.dahiKg + (isDahi ? c.actualKg : 0),
       gross: acc.gross + c.gross,
       disc: acc.disc + c.discAmt,
@@ -280,16 +300,20 @@ const calcTotals = rows =>
   }, { milkKg: 0, dahiKg: 0, gross: 0, disc: 0, net: 0 })
 
 // ─── Initial tab state ─────────────────────────────────────────────────────────
-const BANNED_PRODUCT_KEYWORDS = ['paneer', 'pedha', 'pedaa', 'butter', 'other item']
-
 const sanitizeRows = (rows, tabKey = '') => {
+  const isNamaste = String(tabKey).toLowerCase().includes('namaste') || String(tabKey).toLowerCase().startsWith('otherdairy')
   const defaultList = getDefaultProductsForTab(tabKey)
   if (!Array.isArray(rows) || rows.length === 0) return defaultList.map(mkRow)
+
+  const bannedKeywords = isNamaste
+    ? ['pedha', 'pedaa', 'butter', 'other item']
+    : ['paneer', 'pedha', 'pedaa', 'butter', 'other item']
+
   let filtered = rows
     .filter(r => {
       if (!r || !r.name) return false
       const nameLower = String(r.name).toLowerCase().trim()
-      return !BANNED_PRODUCT_KEYWORDS.some(banned => nameLower.includes(banned))
+      return !bannedKeywords.some(banned => nameLower.includes(banned))
     })
     .map(r => {
       if (r.id === 'dahi100' && (!r.disc || r.disc === 0)) return { ...r, disc: 1.0, price: r.price || 10 }
@@ -297,6 +321,9 @@ const sanitizeRows = (rows, tabKey = '') => {
       if (r.id === 'dahi400' && (r.disc === 2.865 || !r.disc)) return { ...r, disc: 2.9, price: r.price || 35 }
       if ((r.id === 'lassi10' || r.name?.toLowerCase().includes('lassi')) && (!r.disc || r.disc === 0)) {
         return { ...r, disc: 1.1, price: r.price || 10 }
+      }
+      if ((r.id === 'paneer95' || r.name?.toLowerCase().includes('paneer')) && (!r.disc || r.disc === 0)) {
+        return { ...r, disc: 11.0, price: r.price || 95 }
       }
       return r
     })
@@ -320,6 +347,16 @@ const sanitizeRows = (rows, tabKey = '') => {
     const lassiDef = defaultList.find(p => p.id === 'lassi10')
     if (lassiDef) {
       filtered.push(mkRow(lassiDef))
+    }
+  }
+
+  if (isNamaste) {
+    const hasPaneer = filtered.some(r => r.id === 'paneer95' || (r.name && r.name.toLowerCase().includes('paneer')))
+    if (!hasPaneer) {
+      const paneerDef = defaultList.find(p => p.id === 'paneer95' || p.name.toLowerCase().includes('paneer'))
+      if (paneerDef) {
+        filtered.push(mkRow(paneerDef))
+      }
     }
   }
 
@@ -419,7 +456,8 @@ const buildSummaryText = ({ tabName, dateLabel, supplyDateLabel, rows, extra, al
     lines.push('')
     lines.push(`══ All Saved History (${historyDays.length} ${historyDays.length === 1 ? 'day' : 'days'}) ══`)
     historyDays.forEach(d => {
-      lines.push(`${d.dateLabel} — Milk ${fmtN(d.milkL)}L, Dahi ${fmtN(d.dahiKg)}kg = ${fmt(d.net)}`)
+      const supplyInfo = d.supplyDateStr ? ` | 🚚 ${formatIsoToDdMmYyyy(d.supplyDateStr)}` : ''
+      lines.push(`${d.dateLabel}${supplyInfo} — Milk ${fmtN(d.milkL)}L, Dahi ${fmtN(d.dahiKg)}kg = ${fmt(d.net)}`)
     })
     lines.push('')
     lines.push(`Lifetime totals — Milk: ${fmtN(historyTotals.milkL)} L | Dahi: ${fmtN(historyTotals.dahiKg)} kg | Net: ${fmt(historyTotals.net)}`)
@@ -444,7 +482,12 @@ const buildSummaryHTML = ({ tabName, dateLabel, supplyDateLabel, rows, extra, al
   const extraActive = extra.filter(r => calcRow(r).qty > 0)
 
   const historyRowsHtml = historyDays.map(d => `<tr>
-    <td>${d.dateLabel}</td>
+    <td>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <strong>${d.dateLabel}</strong>
+        ${d.supplyDateStr ? `<span style="font-size:11px;color:#2563eb;background:#eff6ff;padding:1px 5px;border-radius:4px;border:1px solid #bfdbfe;white-space:nowrap;">🚚 ${formatIsoToDdMmYyyy(d.supplyDateStr)}</span>` : ''}
+      </div>
+    </td>
     <td style="text-align:center">${fmtN(d.milkL)} L</td>
     <td style="text-align:center">${fmtN(d.dahiKg)} kg</td>
     <td style="text-align:right">${fmt(d.net)}</td>
@@ -479,12 +522,12 @@ const buildSummaryHTML = ({ tabName, dateLabel, supplyDateLabel, rows, extra, al
   <p class="sub">📅 Order Date: ${dateLabel} &nbsp;•&nbsp; 🚚 Supply Date: ${supplyDateLabel}</p>
 
   <div class="section-title">Main Order</div>
-  <table><thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+  <table><thead><tr><th style="text-align:center">Products</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
   <tbody>${rowsHtml(rows) || '<tr><td colspan="3" style="color:#94a3b8">No items</td></tr>'}</tbody></table>
 
   ${extraActive.length ? `
   <div class="section-title">Extra Milk</div>
-  <table><thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+  <table><thead><tr><th style="text-align:center">Products</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
   <tbody>${rowsHtml(extra)}</tbody></table>` : ''}
 
   <div class="totals">
@@ -520,7 +563,7 @@ const buildSummaryHTML = ({ tabName, dateLabel, supplyDateLabel, rows, extra, al
 const THead = ({ showDel }) => (
   <thead>
     <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-      <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 sm:px-3 py-2 text-left sm:text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#cbd5e1] dark:shadow-[1px_0_0_0_#334155]" style={{ width: 135, minWidth: 125 }}>Product</th>
+      <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 sm:px-3 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#cbd5e1] dark:shadow-[1px_0_0_0_#334155]" style={{ width: 135, minWidth: 125 }}>Products</th>
       <th className="px-1 py-2 text-center text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 42 }}>₹ / kg</th>
       <th className="px-1 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 65 }}>Total Kg</th>
       <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-blue-700 dark:text-blue-300 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 75 }}>Total Kg</th>
@@ -543,7 +586,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
   const dahiWarn = row.id === 'dahi400' && qty > 0 && qty % 2 !== 0
 
   const cell = 'border-b border-slate-100 dark:border-slate-700/50 border-r border-slate-100 dark:border-slate-700/50 px-1 py-1.5 text-center text-xs'
-  const inp = 'w-full bg-transparent border-none outline-none text-xs text-center font-mono text-slate-800 dark:text-slate-100'
+  const inp = 'w-full bg-transparent border-none outline-none text-xs text-center font-medium text-slate-800 dark:text-slate-100'
 
 
   return (
@@ -580,11 +623,11 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            className="w-full bg-yellow-50 dark:bg-slate-800 border-none outline-none text-base sm:text-lg md:text-xl font-black text-center font-mono text-slate-900 dark:text-white rounded-lg py-1 px-1 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all"
+            className="w-full bg-yellow-50 dark:bg-slate-800 border-none outline-none text-base sm:text-lg md:text-xl font-bold text-center text-slate-900 dark:text-white rounded-lg py-1 px-1 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all"
             value={row.morn !== undefined && row.morn !== null ? row.morn : ''}
             placeholder="0"
             onChange={e => onUpdate(idx, 'morn', e.target.value)} />
-          : <span className="text-slate-800 dark:text-slate-100 text-[18px] sm:text-[20px] font-extrabold">{row.morn || '-'}</span>}
+          : <span className="text-slate-800 dark:text-slate-100 text-[18px] sm:text-[20px] font-bold">{row.morn || '-'}</span>}
       </td>
 
       {/* Kg / L display  + warning */}
@@ -602,7 +645,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
 
       {/* Net amount */}
       <td className="border-b border-slate-100 dark:border-slate-700/50 px-2 py-1.5 text-center">
-        <span className="font-mono text-emerald-700 dark:text-emerald-400 text-[17px] sm:text-[19px] font-extrabold">{fmt(net)}</span>
+        <span className="text-emerald-700 dark:text-emerald-400 text-[17px] sm:text-[19px] font-bold">{fmt(net)}</span>
       </td>
 
       {/* Discount — editable only in modifyMode, otherwise read-only */}
@@ -616,7 +659,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
             value={row.disc !== undefined && row.disc !== null ? row.disc : ''}
             onChange={e => onUpdate(idx, 'disc', e.target.value)}
           />
-          : <span className="text-orange-500 dark:text-orange-400 text-[13px] font-bold font-mono">
+          : <span className="text-orange-500 dark:text-orange-400 text-[13px] font-bold">
             {fmtN(row.disc)}
           </span>}
       </td>
@@ -815,9 +858,17 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
                           S.No {item.serialNo}
                         </span>
                         <div className="truncate">
-                          <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
-                            {fmtDateLabel(item.dateStr)}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-nowrap">
+                            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                              {fmtDateLabel(item.dateStr)}
+                            </p>
+                            {item.data.supplyDate && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 whitespace-nowrap shrink-0">
+                                <span>🚚</span>
+                                <span>{formatIsoToDdMmYyyy(item.data.supplyDate)}</span>
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400">
                             Milk: {fmtN(mt.milkKg + et.milkKg)} L &nbsp;·&nbsp; Dahi: {fmtN(mt.dahiKg + et.dahiKg)} kg &nbsp;·&nbsp; {fmt(finalNet)}
                           </p>
@@ -858,7 +909,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
                   1. Keep Top Entries (Delete After S.No X)
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
-                  E.g. If you enter <span className="font-mono font-bold text-slate-700 dark:text-slate-300">10</span>, entries from S.No <span className="font-bold text-red-600">11 to {count >= 11 ? count : 'End'}</span> will be deleted.
+                  E.g. If you enter <span className="font-bold text-slate-700 dark:text-slate-300">10</span>, entries from S.No <span className="font-bold text-red-600">11 to {count >= 11 ? count : 'End'}</span> will be deleted.
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
@@ -867,7 +918,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
                       type="number" min="1" max={count - 1} placeholder="e.g. 10"
                       value={keepTopInput}
                       onChange={e => { setKeepTopInput(e.target.value); setSnError('') }}
-                      className="w-20 px-2.5 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono focus:ring-1 focus:ring-red-500 outline-none"
+                      className="w-20 px-2.5 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-semibold focus:ring-1 focus:ring-red-500 outline-none"
                     />
                     <span className="text-xs text-slate-500">entries</span>
                   </div>
@@ -896,7 +947,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
                       type="number" min="1" max={count} placeholder="S.No"
                       value={rangeFromSn}
                       onChange={e => { setRangeFromSn(e.target.value); setSnError('') }}
-                      className="w-16 px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono focus:ring-1 focus:ring-red-500 outline-none"
+                      className="w-16 px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-semibold focus:ring-1 focus:ring-red-500 outline-none"
                     />
                   </div>
                   <div className="flex items-center gap-1">
@@ -905,7 +956,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
                       type="number" min="1" max={count} placeholder={`End (${count})`}
                       value={rangeToSn}
                       onChange={e => { setRangeToSn(e.target.value); setSnError('') }}
-                      className="w-20 px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono focus:ring-1 focus:ring-red-500 outline-none"
+                      className="w-20 px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-semibold focus:ring-1 focus:ring-red-500 outline-none"
                     />
                   </div>
                   <button
@@ -982,9 +1033,17 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
 
               {/* Date + summary */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
-                  {fmtDateLabel(dateStr)}
-                </p>
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                    {fmtDateLabel(dateStr)}
+                  </span>
+                  {data.supplyDate && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 whitespace-nowrap shrink-0">
+                      <span>🚚</span>
+                      <span>{formatIsoToDdMmYyyy(data.supplyDate)}</span>
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                   <span>Milk: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{fmtN(mt.milkKg + et.milkKg)} L</strong></span>
                   <span>·</span>
@@ -1013,7 +1072,7 @@ const HistoryPanel = ({ tabKey, onLoad }) => {
 // Props:
 //   tabName  (string) – display title  e.g. "🐄 Patan Dairy"
 //   tabKey   (string) – storage key    e.g. "patandairy"
-const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor }) => {
+const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
 
   // Auto-restore draft from Local Storage on load
   const [tabData, setTabData] = useState(() => {
@@ -1066,16 +1125,6 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
     storageService.saveActiveDraft({ tabData })
   }, [tabData])
 
-  // ── Activity Logging helper ───────────────────────────────────────────────
-  const logActivity = (action, details, type = 'update') => {
-    storageService.addActivityLog({
-      tab: tabName,
-      action,
-      details,
-      type
-    })
-  }
-
   // ── Unsaved Changes / Refresh & Navigation Guard ─────────────────────────
   const hasActiveEntries = Boolean(
     (st.rows && st.rows.some(r => r.morn > 0 || r.eve > 0)) ||
@@ -1113,7 +1162,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
 
   const upd = patch => setTabData(prev => ({ ...prev, [tabKey]: { ...(prev[tabKey] || initTabState(tabKey)), ...patch } }))
 
-  // ── Row array helpers with activity logging ─────────────────────────────────
+  // ── Row array helpers ─────────────────────────────────
   const updRow = (arr, i, field, val) => {
     let sanitizedVal = val
     if (field === 'morn' || field === 'eve') {
@@ -1121,21 +1170,10 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
     } else if (field === 'disc' || field === 'price') {
       sanitizedVal = sanitizeDecimalInput(val)
     }
-    const updated = arr.map((r, idx) => idx !== i ? r : { ...r, [field]: sanitizedVal })
-    const item = arr[i]
-    if (item && field !== 'name') {
-      logActivity('Update Qty', `Changed ${item.name} ${field} to ${sanitizedVal || 0}`, 'update')
-    } else if (item && field === 'name') {
-      logActivity('Rename Product', `Renamed product to "${val}"`, 'update')
-    }
-    return updated
+    return arr.map((r, idx) => idx !== i ? r : { ...r, [field]: sanitizedVal })
   }
 
   const delRow = (arr, i) => {
-    const item = arr[i]
-    if (item) {
-      logActivity('Remove Row', `Removed ${item.name} from product list`, 'delete')
-    }
     return arr.filter((_, idx) => idx !== i)
   }
 
@@ -1143,7 +1181,6 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
     const a = [...arr], j = i + dir
     if (j < 0 || j >= a.length) return a
     ;[a[i], a[j]] = [a[j], a[i]]
-    logActivity('Reorder', `Reordered row ${a[j]?.name || ''}`, 'update')
     return a
   }
 
@@ -1173,21 +1210,17 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
     const sanitized = sanitizeDecimalInput(val)
     const online = parseFloat(sanitized) || 0
     upd({ payOnline: sanitized, payMode: 'auto', payOffline: Math.max(0, finalAfterLess - online) })
-    logActivity('Payment Online', `Set Online payment to ₹${online}`, 'update')
   }
 
   const handleOfflineChange = (val) => {
     const sanitized = sanitizeDecimalInput(val)
-    const offline = parseFloat(sanitized) || 0
     upd({ payOffline: sanitized, payMode: 'manual' })
-    logActivity('Payment Offline', `Set Offline payment to ₹${offline}`, 'update')
   }
 
   const handleLessAmtChange = (val) => {
     const sanitized = sanitizeDecimalInput(val)
     const v = parseFloat(sanitized) || 0
     upd({ lessAmt: sanitized })
-    logActivity('Less Amount', `Set discount/less amount to ₹${v}`, 'update')
     try { localStorage.setItem(LAST_LESS_KEY, String(v)) } catch { }
   }
 
@@ -1228,9 +1261,6 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
     saveHistory(h)
 
     const formattedDate = formatIsoToDdMmYyyy(selectedDate)
-    const logMsg = `${isOverwrite ? 'Overwrote' : 'Saved'} bill for date ${selectedDate} (Final Total: ₹${finalAfterLess})`
-    logActivity('Save Bill', logMsg, 'save')
-
     const badgeText = isOverwrite ? '✓ Overwritten & Saved!' : '✓ Saved!'
     setSaveMsg(badgeText)
 
@@ -1259,12 +1289,25 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
       payMode: 'auto',
     })
 
-    logActivity('Refresh Form', 'Cleared all written order quantities and payments', 'update')
-
     setSaveToastInfo({
       type: 'refresh',
       title: 'Form Refreshed & Cleared',
       message: `All typed quantities in ${tabName} have been cleared.`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    })
+    setTimeout(() => setSaveToastInfo(null), 3500)
+  }
+
+  const handleResetProducts = () => {
+    const defaultList = getDefaultProductsForTab(tabKey)
+    upd({
+      rows: defaultList.map(mkRow),
+      extra: defaultList.map(mkRow),
+    })
+    setSaveToastInfo({
+      type: 'restore',
+      title: 'Products Reset to Default',
+      message: `${tabName} product catalogue restored to standard rates.`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
     setTimeout(() => setSaveToastInfo(null), 3500)
@@ -1277,143 +1320,171 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
       : getNextDayStr(targetDate)
 
     upd({
-      rows: sanitizeRows(data.rows),
-      extra: sanitizeRows(data.extra),
+      rows: sanitizeRows(data.rows, tabKey),
+      extra: sanitizeRows(data.extra, tabKey),
       lessAmt: data.lessAmt || 0, payOnline: data.payOnline || 0,
       payOffline: data.payOffline || 0, payMode: data.payMode || 'auto',
       supplyDate: loadedSupply,
     })
-    logActivity('Restore Bill', `Restored saved record from ${targetDate}`, 'restore')
     if (dateStr) setSelectedDate(dateStr)
 
     setSaveToastInfo({
       type: 'restore',
       title: 'Bill Restored from History',
-      message: `${tabName} • Order Date: ${formatIsoToDdMmYyyy(targetDate)}`,
+      message: `${tabName} order from ${targetDate} loaded.`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
     setTimeout(() => setSaveToastInfo(null), 3500)
   }
 
-  const handleResetProducts = () => {
-    const defaultList = getDefaultProductsForTab(tabKey)
-    upd({
-      rows: defaultList.map(mkRow),
-      extra: defaultList.map(mkRow)
-    })
-    logActivity('Reset Catalog', 'Restored default milk, dahi, and lassi product catalog', 'update')
-    setSaveMsg('✓ Reset to default products list!')
-    setTimeout(() => setSaveMsg(''), 2500)
-  }
-
-  // ── Share / Summary helpers ─────────────────────────────────────────────────
-  const summaryArgs = () => {
-    // Pull every saved day for this tab from localStorage
+  const handleOpenSummaryPage = () => {
+    setShowShareMenu(false)
     const h = loadHistory()
-    const historyDays = Object.entries(h)
-      .filter(([k]) => k.startsWith(tabKey + '_'))
-      .map(([k, data]) => {
-        const dateStr = k.replace(tabKey + '_', '')
-        const mt = calcTotals(data.rows || [])
-        const et = calcTotals(data.extra || [])
-        const grossNet = mt.net + et.net
-        const lessAmt = Number(data.lessAmt) || 0
-        const finalNet = Math.max(0, grossNet - lessAmt)
-        return {
-          dateStr,
-          dateLabel: fmtDateLabel(dateStr),
-          milkL: mt.milkKg + et.milkKg,
-          dahiKg: mt.dahiKg + et.dahiKg,
-          net: finalNet,
-          lessAmt,
-          payOnline: data.payOnline || 0,
-          payOffline: data.payOffline || 0,
-        }
-      })
-      .sort((a, b) => b.dateStr.localeCompare(a.dateStr))
+    const historyKeys = Object.keys(h)
+      .filter(k => k.startsWith(tabKey + '_'))
+      .sort((a, b) => b.localeCompare(a))
+
+    const historyDays = historyKeys.map(k => {
+      const dStr = k.replace(tabKey + '_', '')
+      const rec = h[k] || {}
+      const mTotals = calcTotals(rec.rows || [])
+      const eTotals = calcTotals(rec.extra || [])
+      const lAmt = Number(rec.lessAmt) || 0
+      const net = Math.max(0, mTotals.net + eTotals.net - lAmt)
+      return {
+        dateStr: dStr,
+        dateLabel: fmtDateLabel(dStr),
+        supplyDateStr: rec.supplyDate || '',
+        supplyDateLabel: rec.supplyDate ? fmtDateLabel(rec.supplyDate) : '',
+        milkL: mTotals.milkKg + eTotals.milkKg,
+        dahiKg: mTotals.dahiKg + eTotals.dahiKg,
+        net
+      }
+    })
 
     const historyTotals = historyDays.reduce((acc, d) => ({
       milkL: acc.milkL + d.milkL,
       dahiKg: acc.dahiKg + d.dahiKg,
-      net: acc.net + d.net,
+      net: acc.net + d.net
     }), { milkL: 0, dahiKg: 0, net: 0 })
 
-    return {
+    const html = buildSummaryHTML({
       tabName,
       dateLabel: fmtDateLabel(selectedDate),
       supplyDateLabel: fmtDateLabel(effectiveSupplyDate),
-      rows: st.rows, extra: st.extra,
-      allMilkL, allDahiKg, finalDisc, finalNet,
-      lessAmt, finalAfterLess, payOnline, payOffline,
-      historyDays, historyTotals,
-    }
-  }
+      rows: st.rows,
+      extra: st.extra,
+      allMilkL,
+      allDahiKg,
+      finalDisc,
+      finalNet,
+      lessAmt,
+      finalAfterLess,
+      payOnline,
+      payOffline,
+      historyDays,
+      historyTotals
+    })
 
-  const handleOpenSummaryPage = () => {
-    const html = buildSummaryHTML(summaryArgs())
     const win = window.open('', '_blank')
     if (win) {
+      win.document.open()
       win.document.write(html)
       win.document.close()
-    } else {
-      setShareToast('Please allow pop-ups to view the summary page')
-      setTimeout(() => setShareToast(''), 3000)
     }
-    setShowShareMenu(false)
   }
 
   const handleShareText = async () => {
-    const text = buildSummaryText(summaryArgs())
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: `${tabName} — Order Summary`, text })
-        setShareToast('Shared!')
-      } else {
-        await navigator.clipboard.writeText(text)
-        setShareToast('Copied summary to clipboard!')
-      }
-    } catch (err) {
-      if (err?.name !== 'AbortError') setShareToast('Share failed')
-    }
-    setTimeout(() => setShareToast(''), 2800)
     setShowShareMenu(false)
+    const h = loadHistory()
+    const historyKeys = Object.keys(h)
+      .filter(k => k.startsWith(tabKey + '_'))
+      .sort((a, b) => b.localeCompare(a))
+
+    const historyDays = historyKeys.map(k => {
+      const dStr = k.replace(tabKey + '_', '')
+      const rec = h[k] || {}
+      const mTotals = calcTotals(rec.rows || [])
+      const eTotals = calcTotals(rec.extra || [])
+      const lAmt = Number(rec.lessAmt) || 0
+      const net = Math.max(0, mTotals.net + eTotals.net - lAmt)
+      return {
+        dateStr: dStr,
+        dateLabel: fmtDateLabel(dStr),
+        supplyDateStr: rec.supplyDate || '',
+        supplyDateLabel: rec.supplyDate ? fmtDateLabel(rec.supplyDate) : '',
+        milkL: mTotals.milkKg + eTotals.milkKg,
+        dahiKg: mTotals.dahiKg + eTotals.dahiKg,
+        net
+      }
+    })
+
+    const historyTotals = historyDays.reduce((acc, d) => ({
+      milkL: acc.milkL + d.milkL,
+      dahiKg: acc.dahiKg + d.dahiKg,
+      net: acc.net + d.net
+    }), { milkL: 0, dahiKg: 0, net: 0 })
+
+    const text = buildSummaryText({
+      tabName,
+      dateLabel: fmtDateLabel(selectedDate),
+      supplyDateLabel: fmtDateLabel(effectiveSupplyDate),
+      rows: st.rows,
+      extra: st.extra,
+      allMilkL,
+      allDahiKg,
+      finalDisc,
+      finalNet,
+      lessAmt,
+      finalAfterLess,
+      payOnline,
+      payOffline,
+      historyDays,
+      historyTotals
+    })
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${tabName} Order Summary`,
+          text
+        })
+        return
+      } catch { }
+    }
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setShareToast('✓ Summary Copied to Clipboard!')
+      setTimeout(() => setShareToast(''), 3000)
+    } catch {
+      setShareToast('Failed to copy')
+      setTimeout(() => setShareToast(''), 2000)
+    }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TABLE RENDERER  (reused for main rows and extra rows)
-  // ═══════════════════════════════════════════════════════════════════════════
-  const renderTable = (rows, isExtra) => {
-    const setRows = r => isExtra ? upd({ extra: r }) : upd({ rows: r })
-    const totals = isExtra ? extraTotals : mainTotals
-
+  const renderTable = (rows, isExtra = false) => {
+    const totals = calcTotals(rows)
     return (
       <div>
         <div className="overflow-x-auto">
-          <table className="w-full" style={{ tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+          <table className="w-full text-xs">
             <THead showDel={modifyMode} />
             <tbody>
-              {rows.map((r, i) => (
+              {rows.map((row, idx) => (
                 <ProductRow
-                  key={r.id} row={r} idx={i} total={rows.length}
-                  modifyMode={modifyMode} editMode={editMode}
-                  onUpdate={(idx, f, v) => setRows(updRow(rows, idx, f, v))}
-                  onDelete={idx => setRows(delRow(rows, idx))}
-                  onMoveUp={idx => setRows(moveRow(rows, idx, -1))}
-                  onMoveDown={idx => setRows(moveRow(rows, idx, +1))}
+                  key={row.id || idx}
+                  row={row}
+                  idx={idx}
+                  total={rows.length}
+                  modifyMode={modifyMode}
+                  editMode={editMode}
+                  onUpdate={(i, field, val) => upd(isExtra ? { extra: updRow(rows, i, field, val) } : { rows: updRow(rows, i, field, val) })}
+                  onDelete={(i) => upd(isExtra ? { extra: delRow(rows, i) } : { rows: delRow(rows, i) })}
+                  onMoveUp={(i) => upd(isExtra ? { extra: moveRow(rows, i, -1) } : { rows: moveRow(rows, i, -1) })}
+                  onMoveDown={(i) => upd(isExtra ? { extra: moveRow(rows, i, 1) } : { rows: moveRow(rows, i, 1) })}
                 />
               ))}
-
-              {/* Add row (modifyMode only) */}
-              {modifyMode && (
-                <tr>
-                  <td colSpan={9} className="px-3 py-2">
-                    <button
-                      onClick={() => setRows([...rows, mkRow({ id: uid(), name: 'New product', price: 0, calcMode: 'kg' })])}
-                      className="text-xs text-slate-500 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 hover:border-slate-400 transition-colors"
-                    >+ Add row</button>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -1423,7 +1494,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
           <span className="text-[16px] sm:text-[18px] font-bold text-slate-800 dark:text-slate-100">
             {isExtra ? 'Extra subtotal' : 'Main subtotal'}
           </span>
-          <span className="font-extrabold text-[20px] sm:text-[24px] font-mono text-emerald-600 dark:text-emerald-400">
+          <span className="font-bold text-[20px] sm:text-[24px] text-emerald-600 dark:text-emerald-400">
             {fmt(totals.net)}
           </span>
         </div>
@@ -1448,7 +1519,6 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
             <span>•</span>
             <span>🚚 Supply: {fmtDateLabel(effectiveSupplyDate)}</span>
           </div>
-
         </div>
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
@@ -1511,13 +1581,13 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
               return (
                 <div key={r.id} className="flex justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-700/50">
                   <span className="text-[15px] py-1 text-slate-700 dark:text-slate-200">{r.name}  =  {kgLabel}</span>
-                  <span className="text-[18px] font-mono text-slate-800 dark:text-slate-100">{fmt(net)}</span>
+                  <span className="text-[18px] font-semibold text-slate-800 dark:text-slate-100">{fmt(net)}</span>
                 </div>
               )
             })}
             <div className="flex justify-between text-sm font-bold pt-2">
               <span className="text-[18px] text-slate-800 dark:text-slate-200">Total extra</span>
-              <span className="text-[18px] font-mono text-emerald-600 dark:text-emerald-400">{fmt(extraTotals.net)}</span>
+              <span className="text-[18px] font-bold text-emerald-600 dark:text-emerald-400">{fmt(extraTotals.net)}</span>
             </div>
           </div>
         </div>
@@ -1529,9 +1599,9 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
           <div>
             <p className="text-[15px] text-emerald-600 dark:text-emerald-400">Main subtotal {fmt(mainTotals.net)}</p>
             <p className="text-[15px] text-emerald-600 dark:text-emerald-400">+ Extra milk {fmt(extraTotals.net)}</p>
-            <p className="text-[15px] text-emerald-700 dark:text-emerald-300 mt-1">Final Total Amount</p>
+            <p className="text-[15px] text-emerald-700 dark:text-emerald-300 mt-1 font-semibold">Final Total Amount</p>
           </div>
-          <span className="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{fmt(finalNet)}</span>
+          <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{fmt(finalNet)}</span>
         </div>
       )}
 
@@ -1540,7 +1610,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
       {extraActive.length === 0 && (
         <div className="flex items-center justify-between px-4 py-4 bg-emerald-50 dark:bg-emerald-900/20 border-t border-emerald-200 dark:border-emerald-800">
           <span className="text-[18px] text-emerald-700 dark:text-emerald-300 font-semibold">Final Total Amount</span>
-          <span className="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{fmt(finalNet)}</span>
+          <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{fmt(finalNet)}</span>
         </div>
       )}
 
@@ -1578,12 +1648,12 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
             placeholder="0"
             value={st.lessAmt !== undefined && st.lessAmt !== null ? st.lessAmt : ''}
             onChange={e => handleLessAmtChange(e.target.value)}
-            className="w-28 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-rose-400"
+            className="w-28 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-800 text-right font-medium text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-rose-400"
           />
         </div>
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-rose-100 dark:border-rose-900/30">
           <span className="text-[18px] font-bold text-teal-700 dark:text-teal-300">Final Total Amount</span>
-          <span className="text-2xl font-bold font-mono text-teal-600 dark:text-teal-400">{fmt(finalAfterLess)}</span>
+          <span className="text-2xl font-bold text-teal-600 dark:text-teal-400">{fmt(finalAfterLess)}</span>
         </div>
       </div>
 
@@ -1598,7 +1668,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
         ].map(({ label, value, cls }) => (
           <div key={label} className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-2 sm:p-2.5 border border-slate-200/60 dark:border-slate-700/60">
             <p className="text-[11px] sm:text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
-            <p className={`text-sm sm:text-base font-mono font-bold mt-0.5 ${cls}`}>{value}</p>
+            <p className={`text-sm sm:text-base font-bold mt-0.5 ${cls}`}>{value}</p>
           </div>
         ))}
       </div>
@@ -1627,7 +1697,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
                 placeholder="0"
                 value={st.payOnline !== undefined && st.payOnline !== null ? st.payOnline : ''}
                 onChange={e => handleOnlineChange(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-right font-medium text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
             <div>
@@ -1640,12 +1710,12 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
                 placeholder="0"
                 value={st.payMode === 'manual' ? (st.payOffline !== undefined && st.payOffline !== null ? st.payOffline : '') : (payOffline || '')}
                 onChange={e => handleOfflineChange(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-right font-mono text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-right font-medium text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
           </div>
           <div className="flex items-center justify-between mt-2 text-xs text-slate-500 dark:text-slate-400">
-            <span>Online {fmt(payOnline)} + Offline {fmt(payOffline)} = <strong className="text-slate-700 dark:text-slate-200">{fmt(payOnline + payOffline)}</strong></span>
+            <span>Online {fmt(payOnline)} + Offline {fmt(payOffline)} = <strong className="text-slate-700 dark:text-slate-200 font-semibold">{fmt(payOnline + payOffline)}</strong></span>
             {st.payMode === 'manual' && (
               <button onClick={() => upd({ payMode: 'auto', payOffline: Math.max(0, finalAfterLess - payOnline) })}
                 className="text-[11px] text-blue-500 hover:text-blue-700 underline">reset to auto</button>
@@ -1663,7 +1733,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
           <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3.5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xs relative cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex-1 min-w-0 max-w-[50%]">
             <span className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-200 whitespace-nowrap">Order:</span>
             <div className="relative flex items-center w-full justify-center">
-              <div className="px-2.5 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-mono font-black bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
+              <div className="px-2.5 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-bold bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
                 <span>{formatIsoToDdMmYyyy(selectedDate)}</span>
               </div>
               <input
@@ -1675,7 +1745,6 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
                   setSelectedDate(newDate)
                   const nextSupply = getNextDayStr(newDate)
                   upd({ supplyDate: nextSupply })
-                  logActivity('Order Date', `Changed order date to ${newDate}, supply date set to ${nextSupply}`, 'update')
                 }}
                 className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
               />
@@ -1718,7 +1787,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
           <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3.5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xs relative cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex-1 min-w-0 max-w-[50%]">
             <span className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-200 whitespace-nowrap">Supply:</span>
             <div className="relative flex items-center w-full justify-center">
-              <div className="px-2.5 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-mono font-black bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
+              <div className="px-2.5 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-bold bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
                 <span>{formatIsoToDdMmYyyy(effectiveSupplyDate)}</span>
               </div>
               <input
@@ -1728,7 +1797,6 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
                   const val = e.target.value
                   if (!val) return
                   upd({ supplyDate: val })
-                  logActivity('Supply Date', `Updated supply date to ${val}`, 'update')
                 }}
                 className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
               />
@@ -1760,7 +1828,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-1">
               <p className="text-sm font-bold text-slate-100">{saveToastInfo.title}</p>
-              <span className="text-[10px] text-slate-400 font-mono">{saveToastInfo.time}</span>
+              <span className="text-[10px] text-slate-400 font-medium">{saveToastInfo.time}</span>
             </div>
             <p className="text-xs text-slate-300 mt-1 font-medium leading-snug">{saveToastInfo.message}</p>
           </div>
@@ -1784,7 +1852,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">Overwrite Saved Record?</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">Order Date: {saveConfirmModal.formattedDate}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Order Date: {saveConfirmModal.formattedDate}</p>
               </div>
             </div>
 
@@ -1792,12 +1860,12 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenLogs, onOpenFestivalAdvisor })
               A bill for <strong className="text-slate-800 dark:text-slate-100">{saveConfirmModal.formattedDate}</strong> already exists in history. Overwrite with new changes?
             </p>
 
-            <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-3 text-xs mb-4 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5 font-mono">
+            <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-3 text-xs mb-4 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5 font-medium">
               <div className="flex justify-between text-slate-500 dark:text-slate-400">
                 <span>Previous Saved Total:</span>
                 <span className="line-through font-bold text-slate-600 dark:text-slate-300">₹{fmt(saveConfirmModal.oldTotal)}</span>
               </div>
-              <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-extrabold text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5">
+              <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold text-sm border-t border-slate-200 dark:border-slate-700 pt-1.5">
                 <span>New Updated Total:</span>
                 <span>₹{fmt(saveConfirmModal.newTotal)}</span>
               </div>
