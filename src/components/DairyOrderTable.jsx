@@ -563,14 +563,14 @@ const buildSummaryHTML = ({ tabName, dateLabel, supplyDateLabel, rows, extra, al
 const THead = ({ showDel }) => (
   <thead>
     <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-      <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 sm:px-3 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#cbd5e1] dark:shadow-[1px_0_0_0_#334155]" style={{ width: 135, minWidth: 125 }}>Products</th>
-      <th className="px-1 py-2 text-center text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 42 }}>₹ / kg</th>
-      <th className="px-1 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 65 }}>Total Kg</th>
-      <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-blue-700 dark:text-blue-300 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 75 }}>Total Kg</th>
-      <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 uppercase" style={{ width: 85 }}>Total ₹</th>
-      <th className="px-1 py-2 text-center text-xs font-bold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ width: 60 }}>Disc ₹</th>
+      <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 sm:px-3 py-2 text-center text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#cbd5e1] dark:shadow-[1px_0_0_0_#334155]" style={{ minWidth: 100 }}>Products</th>
+      <th className="px-1 py-2 text-center text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ minWidth: 36 }}>₹ / kg</th>
+      <th className="px-1 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700" style={{ minWidth: 60 }}>Total Kg</th>
+      <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-blue-700 dark:text-blue-300 uppercase border-r border-slate-200 dark:border-slate-700" style={{ minWidth: 65 }}>Total Kg</th>
+      <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 uppercase" style={{  minWidth: 70 }}>Total ₹</th>
+      <th className="px-1 py-2 text-center text-xs font-bold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{  minWidth: 55 }}>Disc ₹</th>
 
-      {showDel && <th style={{ width: 72 }} className="px-1 py-2 text-center text-xs font-bold text-slate-400 uppercase">Move/Del</th>}
+      {showDel && <th style={{ minWidth: 60 }} className="px-1 py-2 text-center text-xs font-bold text-slate-400 uppercase" >Move/Del</th>}
     </tr>
   </thead>
 )
@@ -595,9 +595,9 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
       {/* Product name: Sticky on left for mobile phones */}
       <td className={`${cell} text-left px-2 sticky left-0 z-10 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#e2e8f0] dark:shadow-[1px_0_0_0_#334155]`}>
         {modifyMode
-          ? <input className="w-full text-sm sm:text-base font-bold text-slate-900 dark:text-white bg-amber-50 dark:bg-slate-800 px-2 py-1 rounded-lg border-none outline-none focus:bg-amber-100 dark:focus:bg-slate-700" value={row.name}
+          ? <input className="w-full text-[15px] sm:text-base font-bold text-slate-900 dark:text-white bg-amber-50 dark:bg-slate-800 px-2 py-1 rounded-lg border-none outline-none focus:bg-amber-100 dark:focus:bg-slate-700" value={row.name}
             onChange={e => onUpdate(idx, 'name', e.target.value)} />
-          : <div>
+          : <div className='py-2'>
             <span className="text-slate-800 dark:text-slate-100 text-[15px] sm:text-[17px] font-bold leading-tight">{row.name}</span>
           </div>}
       </td>
@@ -617,13 +617,13 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
       </td>
 
       {/* Morning input or Order Quantity / Packets */}
-      <td className={cell}>
+      <td className={cell} >
         {editMode
           ? <input
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            className="w-full bg-yellow-50 dark:bg-slate-800 border-none outline-none text-base sm:text-lg md:text-xl font-bold text-center text-slate-900 dark:text-white rounded-lg py-1 px-1 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all"
+            className="w-full bg-yellow-50 dark:bg-slate-800 border-none outline-none text-base sm:text-lg md:text-xl font-bold text-center text-slate-900 dark:text-white rounded-lg py-2 px-4 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all"
             value={row.morn !== undefined && row.morn !== null ? row.morn : ''}
             placeholder="0"
             onChange={e => onUpdate(idx, 'morn', e.target.value)} />
@@ -639,7 +639,7 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
           }`}>
           {kgLabel}
         </span>
-        {dahiWarn && <span className="block text-[10px] text-orange-500 font-bold leading-tight">enter even</span>}
+        {dahiWarn && <span className="block text-[11px] text-orange-500 font-bold leading-tight">enter even</span>}
 
       </td>
 
@@ -1729,11 +1729,11 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
       <div className="flex flex-col gap-3 px-3 sm:px-4 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40">
         
         {/* Row 1: Order Date (left) + Share Button (right) */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3.5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xs relative cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex-1 min-w-0 max-w-[50%]">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3.5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xs relative cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex-1 min-w-0 max-w-[60%]">
             <span className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-200 whitespace-nowrap">Order:</span>
             <div className="relative flex items-center w-full justify-center">
-              <div className="px-2.5 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-bold bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
+              <div className="px-3 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-bold bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
                 <span>{formatIsoToDdMmYyyy(selectedDate)}</span>
               </div>
               <input
@@ -1751,7 +1751,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 relative flex-1 min-w-0 max-w-[50%] justify-end">
+          <div className="flex items-center gap-2 relative flex-1 min-w-0 max-w-[40%] justify-end">
             <button
               onClick={() => setShowShareMenu(v => !v)}
               className="w-full py-2.5 sm:py-3 rounded-2xl text-base sm:text-lg font-black bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95"
@@ -1784,7 +1784,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
 
         {/* Row 2: Supply Date (left) + Save Button (right) */}
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3.5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xs relative cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex-1 min-w-0 max-w-[50%]">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3.5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-xs relative cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex-1 min-w-0 max-w-[60%]">
             <span className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-200 whitespace-nowrap">Supply:</span>
             <div className="relative flex items-center w-full justify-center">
               <div className="px-2.5 py-1 border border-slate-200 dark:border-slate-600 rounded-xl text-sm sm:text-base font-bold bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs">
@@ -1803,7 +1803,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 relative flex-1 min-w-0 max-w-[50%] justify-end">
+          <div className="flex items-center gap-2 relative flex-1 min-w-0 max-w-[40%] justify-end">
             <button
               onClick={handleSaveInitiate}
               className="w-full py-2.5 sm:py-3 rounded-2xl text-base sm:text-lg font-black bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95"
@@ -1811,7 +1811,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
               💾 Save
             </button>
             {saveMsg && (
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 animate-fadeIn absolute right-0 -top-8 whitespace-nowrap shadow-sm z-30">
+              <span className="text-xm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-2 rounded-lg border border-emerald-200 dark:border-emerald-800 animate-fadeIn absolute right-0 -top-8 whitespace-nowrap shadow-sm z-30">
                 {saveMsg}
               </span>
             )}
