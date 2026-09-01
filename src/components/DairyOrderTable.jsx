@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { storageService } from '../services/storageService'
 import { getFestivalAdvisor } from '../data/festivalCalendar'
+import { ReceiptCaptureCard } from './ReceiptCaptureCard'
+import { ShareReceiptModal } from './ShareReceiptModal'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRODUCT CATALOGUES & CALCULATION RULES
@@ -88,7 +90,7 @@ const getNextDayStr = (dateStr) => {
   return formatDateToIso(d)
 }
 
-const fmtDateLabel = dateStr => {
+export const fmtDateLabel = dateStr => {
   if (!dateStr) return ''
   const parts = String(dateStr).split('-')
   let d
@@ -104,7 +106,7 @@ const fmtDateLabel = dateStr => {
   return `${DAYS[d.getDay()]}, ${day}/${month}/${year}`
 }
 
-const formatIsoToDdMmYyyy = (isoStr) => {
+export const formatIsoToDdMmYyyy = (isoStr) => {
   if (!isoStr) return ''
   const parts = isoStr.split('-')
   if (parts.length === 3) {
@@ -151,8 +153,8 @@ const mkRow = ({ id, name, price, calcMode, discAmt }) => {
 }
 
 const uid = () => 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
-const fmt = n => '₹' + parseFloat(n || 0).toFixed(1)
-const fmtN = n => {
+export const fmt = n => '₹' + parseFloat(n || 0).toFixed(1)
+export const fmtN = n => {
   const v = parseFloat(n || 0)
   return v % 1 === 0 ? String(v) : v.toFixed(2)
 }
@@ -161,7 +163,37 @@ const fmtN = n => {
 // CORE CALCULATION — calcRow
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const calcRow = (r) => {
+// ── Dynamic html2canvas loader (zero build-time dependencies, prevents Vite import errors) ──
+async function getHtml2Canvas() {
+  if (typeof window !== 'undefined' && window.html2canvas) {
+    return window.html2canvas
+  }
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return reject(new Error('Window not found'))
+    if (window.html2canvas) return resolve(window.html2canvas)
+
+    // Check if script is already injected
+    const existingScript = document.querySelector('script[data-lib="html2canvas"]')
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(window.html2canvas))
+      existingScript.addEventListener('error', () => reject(new Error('Failed to load html2canvas script')))
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+    script.setAttribute('data-lib', 'html2canvas')
+    script.async = true
+    script.onload = () => {
+      if (window.html2canvas) resolve(window.html2canvas)
+      else reject(new Error('html2canvas failed to initialize'))
+    }
+    script.onerror = () => reject(new Error('Failed to load html2canvas script from CDN'))
+    document.head.appendChild(script)
+  })
+}
+
+export const calcRow = (r) => {
   const qty = (parseFloat(r.morn) || 0) + (parseFloat(r.eve) || 0)
   const disc = parseFloat(r.disc) || 0
   const price = parseFloat(r.price) || 0
@@ -282,7 +314,7 @@ const calcRow = (r) => {
 
 // ─── Aggregate totals across all rows ─────────────────────────────────────────
 
-const calcTotals = rows =>
+export const calcTotals = rows =>
   rows.reduce((acc, r) => {
 
     const c = calcRow(r)
@@ -383,7 +415,7 @@ const initTabState = (tabKey = '') => {
 const STORAGE_KEY = 'dairy_history_v4'
 const LAST_LESS_KEY = 'dairy_last_less_amt'
 
-const loadHistory = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch { return {} } }
+export const loadHistory = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch { return {} } }
 const saveHistory = h => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(h)) } catch { } }
 
 // ── Helper: delete all entries for one tab ──
@@ -560,13 +592,27 @@ const buildSummaryHTML = ({ tabName, dateLabel, supplyDateLabel, rows, extra, al
 // TABLE HEADER
 // ═══════════════════════════════════════════════════════════════════════════════
 // Columns: Product | ₹/kg/L | Total Kg | Total Kg | Total ₹ | Disc ₹ | [Move/Del]
-const THead = ({ showDel }) => (
+const THead = ({ showDel, onToggleEdit }) => (
   <thead>
     <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
       <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 sm:px-3 py-2 text-center text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#cbd5e1] dark:shadow-[1px_0_0_0_#334155]" style={{ minWidth: 100 }}>Products</th>
-      <th className="px-1 py-2 text-center text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ minWidth: 36 }}>₹ / kg</th>
-      <th className="px-1 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700" style={{ minWidth: 60 }}>Total Kg</th>
-      <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-blue-700 dark:text-blue-300 uppercase border-r border-slate-200 dark:border-slate-700" style={{ minWidth: 65 }}>Total Kg</th>
+      <th className="px-1 py-2 text-center text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ minWidth: 38 }}>₹ / kg</th>
+      <th 
+        onClick={onToggleEdit}
+        title="Click to edit order quantities"
+        className="px-1 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-yellow-100/60 dark:hover:bg-yellow-900/30 transition-colors select-none" 
+        style={{ minWidth: 60 }}
+      >
+        Total Kg
+      </th>
+      <th 
+        onClick={onToggleEdit}
+        title="Click to edit order quantities"
+        className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-blue-700 dark:text-blue-300 uppercase border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-blue-100/60 dark:hover:bg-blue-900/30 transition-colors select-none" 
+        style={{ minWidth: 65 }}
+      >
+        Total Kg
+      </th>
       <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 uppercase" style={{  minWidth: 70 }}>Total ₹</th>
       <th className="px-1 py-2 text-center text-xs font-bold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{  minWidth: 55 }}>Disc ₹</th>
 
@@ -578,7 +624,7 @@ const THead = ({ showDel }) => (
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRODUCT ROW
 // ═══════════════════════════════════════════════════════════════════════════════
-const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete, onMoveUp, onMoveDown }) => {
+const ProductRow = ({ row, idx, total, modifyMode, editMode, onEnableEdit, onUpdate, onDelete, onMoveUp, onMoveDown }) => {
   const { qty, net, kgLabel } = calcRow(row)
 
   const isDahi = row.id === 'dahi400' || row.id === 'dahi200' || row.id === 'dahi100'
@@ -617,21 +663,31 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onUpdate, onDelete,
       </td>
 
       {/* Morning input or Order Quantity / Packets */}
-      <td className={cell} >
+      <td 
+        className={`${cell} ${!editMode ? 'cursor-pointer hover:bg-yellow-50/70 dark:hover:bg-yellow-900/20' : ''}`}
+        onClick={() => {
+          if (!editMode && onEnableEdit) onEnableEdit()
+        }}
+      >
         {editMode
           ? <input
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            className="w-full bg-yellow-50 dark:bg-slate-800 border-none outline-none text-base sm:text-lg md:text-xl font-bold text-center text-slate-900 dark:text-white rounded-lg py-2 px-4 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all"
+            className="w-full bg-yellow-50 dark:bg-slate-800 border-none outline-none text-[18px] sm:text-lg md:text-xl font-bold text-center text-slate-900 dark:text-white rounded-lg py-2 px-4 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all"
             value={row.morn !== undefined && row.morn !== null ? row.morn : ''}
             placeholder="0"
             onChange={e => onUpdate(idx, 'morn', e.target.value)} />
-          : <span className="text-slate-800 dark:text-slate-100 text-[18px] sm:text-[20px] font-bold">{row.morn || '-'}</span>}
+          : <span className="text-slate-800 dark:text-slate-100 text-[20px] sm:text-[20px] font-bold select-none">{row.morn || '-'}</span>}
       </td>
 
       {/* Kg / L display  + warning */}
-      <td className={cell}>
+      <td 
+        className={`${cell} ${!editMode ? 'cursor-pointer hover:bg-blue-50/70 dark:hover:bg-blue-900/20' : ''}`}
+        onClick={() => {
+          if (!editMode && onEnableEdit) onEnableEdit()
+        }}
+      >
         <span className={`px-1 py-0.5 rounded font-bold text-[13px] sm:text-[14px] dark:bg-slate-700/80
         ${isDahi
             ? 'text-blue-900 dark:text-blue-200 leading-tight whitespace-pre-line'
@@ -1105,8 +1161,19 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
   const [selectedDate, setSelectedDate] = useState(todayStr())
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [shareToast, setShareToast] = useState('')
+  const [isCapturing, setIsCapturing] = useState(false)
   const [saveToastInfo, setSaveToastInfo] = useState(null)
   const [saveConfirmModal, setSaveConfirmModal] = useState(null)
+  const [previewModalData, setPreviewModalData] = useState({
+    isOpen: false,
+    imageSrc: '',
+    imageBlob: null,
+    fileName: '',
+    textSummary: '',
+  })
+
+  const billContainerRef = useRef(null)
+  const receiptCardRef = useRef(null)
 
   const st = tabData[tabKey] || initTabState(tabKey)
 
@@ -1337,6 +1404,106 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
     setTimeout(() => setSaveToastInfo(null), 3500)
   }
 
+  const handleShareScreenshot = async () => {
+    if (isCapturing) return
+    setIsCapturing(true)
+    setShowShareMenu(false)
+    setShareToast('📸 Generating crystal clear receipt...')
+
+    try {
+      const targetElement = receiptCardRef.current || billContainerRef.current
+      if (!targetElement) throw new Error('Receipt target not found')
+
+      const html2canvas = await getHtml2Canvas()
+      if (!html2canvas) throw new Error('Could not load screenshot generator')
+
+      // Capture at 2.5x retina scale for ultra-crisp text, badges & borders
+      const canvas = await html2canvas(targetElement, {
+        scale: 2.5,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      })
+
+      const cleanTabName = tabName.replace(/[^a-zA-Z0-9]/g, '_')
+      const fileName = `${cleanTabName}_Order_${selectedDate}.png`
+
+      const dataUrl = canvas.toDataURL('image/png', 0.95)
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/png', 0.95)
+      })
+
+      if (!blob) throw new Error('Failed to generate image')
+
+      const h = loadHistory()
+      const historyKeys = Object.keys(h)
+        .filter(k => k.startsWith(tabKey + '_'))
+        .sort((a, b) => b.localeCompare(a))
+
+      const historyDays = historyKeys.map(k => {
+        const dStr = k.replace(tabKey + '_', '')
+        const rec = h[k] || {}
+        const mTotals = calcTotals(rec.rows || [])
+        const eTotals = calcTotals(rec.extra || [])
+        const lAmt = Number(rec.lessAmt) || 0
+        const net = Math.max(0, mTotals.net + eTotals.net - lAmt)
+        return {
+          dateStr: dStr,
+          dateLabel: fmtDateLabel(dStr),
+          supplyDateStr: rec.supplyDate || '',
+          supplyDateLabel: rec.supplyDate ? fmtDateLabel(rec.supplyDate) : '',
+          milkL: mTotals.milkKg + eTotals.milkKg,
+          dahiKg: mTotals.dahiKg + eTotals.dahiKg,
+          net
+        }
+      })
+
+      const historyTotals = historyDays.reduce((acc, d) => ({
+        milkL: acc.milkL + d.milkL,
+        dahiKg: acc.dahiKg + d.dahiKg,
+        net: acc.net + d.net
+      }), { milkL: 0, dahiKg: 0, net: 0 })
+
+      const textSummary = buildSummaryText({
+        tabName,
+        dateLabel: fmtDateLabel(selectedDate),
+        supplyDateLabel: fmtDateLabel(effectiveSupplyDate),
+        rows: st.rows,
+        extra: st.extra,
+        allMilkL,
+        allDahiKg,
+        finalDisc,
+        finalNet,
+        lessAmt,
+        finalAfterLess,
+        payOnline,
+        payOffline,
+        historyDays,
+        historyTotals,
+      })
+
+      setPreviewModalData({
+        isOpen: true,
+        imageSrc: dataUrl,
+        imageBlob: blob,
+        fileName,
+        textSummary,
+      })
+
+      setShareToast('✓ Preview Ready!')
+      setTimeout(() => setShareToast(''), 2000)
+    } catch (err) {
+      if (err && err.name !== 'AbortError') {
+        console.error('Screenshot share error:', err)
+        setShareToast('⚠️ Failed to generate screenshot')
+        setTimeout(() => setShareToast(''), 3000)
+      }
+    } finally {
+      setIsCapturing(false)
+    }
+  }
+
   const handleOpenSummaryPage = () => {
     setShowShareMenu(false)
     const h = loadHistory()
@@ -1469,7 +1636,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
       <div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <THead showDel={modifyMode} />
+            <THead showDel={modifyMode} onToggleEdit={() => setEditMode(v => !v)} />
             <tbody>
               {rows.map((row, idx) => (
                 <ProductRow
@@ -1479,6 +1646,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
                   total={rows.length}
                   modifyMode={modifyMode}
                   editMode={editMode}
+                  onEnableEdit={() => setEditMode(true)}
                   onUpdate={(i, field, val) => upd(isExtra ? { extra: updRow(rows, i, field, val) } : { rows: updRow(rows, i, field, val) })}
                   onDelete={(i) => upd(isExtra ? { extra: delRow(rows, i) } : { rows: delRow(rows, i) })}
                   onMoveUp={(i) => upd(isExtra ? { extra: moveRow(rows, i, -1) } : { rows: moveRow(rows, i, -1) })}
@@ -1508,7 +1676,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="card overflow-hidden">
+    <div ref={billContainerRef} className="card overflow-hidden bg-white dark:bg-slate-800">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
@@ -1521,7 +1689,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap" data-html2canvas-ignore="true">
           {/* Modify: standard size, solid black text */}
           <button onClick={() => setModifyMode(v => !v)}
             className={`px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer active:scale-95 shadow-2xs whitespace-nowrap text-black
@@ -1553,7 +1721,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
 
       {/* Modify mode hint */}
       {modifyMode && (
-        <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-100 dark:border-orange-800 flex items-center justify-between flex-wrap gap-2">
+        <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-100 dark:border-orange-800 flex items-center justify-between flex-wrap gap-2" data-html2canvas-ignore="true">
           <span className="text-xs text-orange-600 dark:text-orange-400">
             ⚙ Modify mode: edit product names, prices, and per-row discounts.
           </span>
@@ -1616,7 +1784,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
 
 
       {/* ── Extra milk toggle ── */}
-      <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-700">
+      <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-700" data-html2canvas-ignore="true">
         <button onClick={() => setShowExtraTable(p => !p)}
           className="text-[20px] font-semibold text-blue-500 dark:text-blue-400 hover:text-blue-700 transition-colors">
           {showExtraTable ? '▲ Hide extra milk orders' : '+ Add extra milk'}
@@ -1678,7 +1846,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
       {/* ═══════════════════════════════════════════════════════════════════════
           PAYMENT MODE  —  Online / Offline split
           ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="px-4 py-1.5">
+      <div className="px-4 py-1.5" data-html2canvas-ignore="true">
         <button onClick={() => setIsOnline(p => !p)}
           className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors shadow-2xs">
           {!isOnline ? 'Online Payment' : 'Payment Mode Hide'}
@@ -1726,7 +1894,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
 
 
       {/* ── Save + Share bar (Row 1: Order Date + Share | Row 2: Supply Date + Save) ── */}
-      <div className="flex flex-col gap-3 px-3 sm:px-4 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40">
+      <div className="flex flex-col gap-3 px-3 sm:px-4 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40" data-html2canvas-ignore="true">
         
         {/* Row 1: Order Date (left) + Share Button (right) */}
         <div className="flex items-center justify-between gap-4">
@@ -1753,29 +1921,17 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
 
           <div className="flex items-center gap-2 relative flex-1 min-w-0 max-w-[40%] justify-end">
             <button
-              onClick={() => setShowShareMenu(v => !v)}
-              className="w-full py-2.5 sm:py-3 rounded-2xl text-base sm:text-lg font-black bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95"
+              onClick={handleShareScreenshot}
+              disabled={isCapturing}
+              className={`w-full py-2.5 sm:py-3 rounded-2xl text-base sm:text-lg font-black transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95 text-white
+                ${isCapturing
+                  ? 'bg-indigo-400 cursor-wait animate-pulse'
+                  : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800'}`}
             >
-              📤 Share
+              {isCapturing ? '📸 Sharing...' : '📤 Share'}
             </button>
-            {showShareMenu && (
-              <div className="absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-2xl overflow-hidden z-20">
-                <button
-                  onClick={handleOpenSummaryPage}
-                  className="w-full text-left px-4 py-3 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/70 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2"
-                >
-                  🧾 Open Summary Page <span className="text-xs text-slate-400 font-normal">(Print / PDF)</span>
-                </button>
-                <button
-                  onClick={handleShareText}
-                  className="w-full text-left px-4 py-3 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/70 flex items-center gap-2"
-                >
-                  💬 Share as Text
-                </button>
-              </div>
-            )}
             {shareToast && (
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 animate-fadeIn absolute right-0 -top-8 whitespace-nowrap shadow-sm z-30">
+              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 animate-fadeIn absolute right-0 -top-10 whitespace-nowrap shadow-md z-30">
                 {shareToast}
               </span>
             )}
@@ -1891,6 +2047,54 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
 
       {/* ── History panel ── */}
       <HistoryPanel tabKey={tabKey} onLoad={handleLoad} />
+
+      {/* ── Offscreen High-Resolution Receipt Canvas (used for crystal-clear screenshot captures) ── */}
+      <div
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: '0',
+          zIndex: -100,
+          pointerEvents: 'none',
+          opacity: 0,
+        }}
+        aria-hidden="true"
+      >
+        <div ref={receiptCardRef}>
+          <ReceiptCaptureCard
+            tabName={tabName}
+            tabKey={tabKey}
+            selectedDate={selectedDate}
+            effectiveSupplyDate={effectiveSupplyDate}
+            rows={st.rows}
+            extra={st.extra}
+            lessAmt={lessAmt}
+            finalNet={finalNet}
+            finalAfterLess={finalAfterLess}
+            finalDisc={finalDisc}
+            allMilkL={allMilkL}
+            allDahiKg={allDahiKg}
+            isOnline={isOnline}
+            payOnline={payOnline}
+            payOffline={payOffline}
+            st={st}
+          />
+        </div>
+      </div>
+
+      {/* ── Interactive Screenshot Preview & Share Modal ── */}
+      <ShareReceiptModal
+        isOpen={previewModalData.isOpen}
+        onClose={() => setPreviewModalData(prev => ({ ...prev, isOpen: false }))}
+        imageSrc={previewModalData.imageSrc}
+        imageBlob={previewModalData.imageBlob}
+        fileName={previewModalData.fileName}
+        tabName={tabName}
+        selectedDate={selectedDate}
+        effectiveSupplyDate={effectiveSupplyDate}
+        finalAfterLess={finalAfterLess}
+        textSummary={previewModalData.textSummary}
+      />
 
     </div>
   )
