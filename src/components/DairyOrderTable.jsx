@@ -595,28 +595,26 @@ const buildSummaryHTML = ({ tabName, dateLabel, supplyDateLabel, rows, extra, al
 const THead = ({ showDel, onToggleEdit }) => (
   <thead>
     <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-      <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-2 sm:px-3 py-2 text-center text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#cbd5e1] dark:shadow-[1px_0_0_0_#334155]" style={{ minWidth: 100 }}>Products</th>
-      <th className="px-1 py-2 text-center text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{ minWidth: 38 }}>₹ / kg</th>
+      <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 px-1.5 sm:px-3 py-2 text-center text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#cbd5e1] dark:shadow-[1px_0_0_0_#334155] w-[27%] sm:w-[30%] min-w-[85px] sm:min-w-[110px]">Products</th>
+      <th className="px-0.5 sm:px-1 py-2 text-center text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase border-r border-slate-200 dark:border-slate-700 w-[11%] sm:w-[10%] min-w-[34px] sm:min-w-[42px]">₹ / kg</th>
       <th 
         onClick={onToggleEdit}
         title="Click to edit order quantities"
-        className="px-1 py-2 text-center text-xs font-bold text-slate-700 dark:text-slate-200 uppercase border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-yellow-100/60 dark:hover:bg-yellow-900/30 transition-colors select-none" 
-        style={{ minWidth: 60 }}
+        className="px-1 sm:px-2 py-2 text-center text-[11px] sm:text-xs md:text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-yellow-100/60 dark:hover:bg-yellow-900/30 transition-colors select-none w-[19%] sm:w-[18%] min-w-[62px] sm:min-w-[85px]" 
       >
         Total Kg
       </th>
       <th 
         onClick={onToggleEdit}
         title="Click to edit order quantities"
-        className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-blue-700 dark:text-blue-300 uppercase border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-blue-100/60 dark:hover:bg-blue-900/30 transition-colors select-none" 
-        style={{ minWidth: 65 }}
+        className="px-0.5 sm:px-1 py-2 text-center text-[10px] sm:text-xs md:text-sm font-extrabold text-blue-700 dark:text-blue-300 uppercase border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-blue-100/60 dark:hover:bg-blue-900/30 transition-colors select-none w-[16%] sm:w-[15%] min-w-[54px] sm:min-w-[75px]" 
       >
         Total Kg
       </th>
-      <th className="px-1 py-2 text-center text-xs sm:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 uppercase" style={{  minWidth: 70 }}>Total ₹</th>
-      <th className="px-1 py-2 text-center text-xs font-bold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700" style={{  minWidth: 55 }}>Disc ₹</th>
+      <th className="px-0.5 sm:px-1 py-2 text-center text-[11px] sm:text-xs md:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 uppercase w-[16%] sm:w-[16%] min-w-[56px] sm:min-w-[75px]">Total ₹</th>
+      <th className="px-0.5 sm:px-1 py-2 text-center text-[9px] sm:text-xs font-bold text-orange-500 dark:text-orange-400 uppercase border-r border-slate-200 dark:border-slate-700 w-[11%] sm:w-[11%] min-w-[38px] sm:min-w-[50px]">Disc ₹</th>
 
-      {showDel && <th style={{ minWidth: 60 }} className="px-1 py-2 text-center text-xs font-bold text-slate-400 uppercase" >Move/Del</th>}
+      {showDel && <th className="px-1 py-2 text-center text-[10px] sm:text-xs font-bold text-slate-400 uppercase w-[10%] min-w-[55px]">Move/Del</th>}
     </tr>
   </thead>
 )
@@ -635,21 +633,36 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onEnableEdit, onUpd
   const inp = 'w-full bg-transparent border-none outline-none text-xs text-center font-medium text-slate-800 dark:text-slate-100'
 
 
+  const mornStr = String(row.morn !== undefined && row.morn !== null ? row.morn : '')
+  const mornLen = mornStr.length
+  // Dynamic auto-sizing font: automatically scales down smoothly if more digits are typed so it never hides
+  const inputFontCls = mornLen > 3
+    ? 'text-[13px] sm:text-[15px]'
+    : mornLen > 2
+    ? 'text-[15px] sm:text-[17px]'
+    : 'text-[17px] sm:text-lg md:text-xl'
+
+  const displayFontCls = mornLen > 3
+    ? 'text-[14px] sm:text-base'
+    : mornLen > 2
+    ? 'text-[16px] sm:text-lg'
+    : 'text-[18px] sm:text-[20px]'
+
   return (
     <tr className={`hover:bg-blue-50/20 dark:hover:bg-blue-900/10 transition-colors ${dahiWarn ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
 
       {/* Product name: Sticky on left for mobile phones */}
-      <td className={`${cell} text-left px-2 sticky left-0 z-10 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#e2e8f0] dark:shadow-[1px_0_0_0_#334155]`}>
+      <td className={`${cell} text-left px-1.5 sm:px-2 sticky left-0 z-10 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#e2e8f0] dark:shadow-[1px_0_0_0_#334155] w-[27%] sm:w-[30%] min-w-[85px] sm:min-w-[110px]`}>
         {modifyMode
-          ? <input className="w-full text-[15px] sm:text-base font-bold text-slate-900 dark:text-white bg-amber-50 dark:bg-slate-800 px-2 py-1 rounded-lg border-none outline-none focus:bg-amber-100 dark:focus:bg-slate-700" value={row.name}
+          ? <input className="w-full text-[13px] sm:text-base font-bold text-slate-900 dark:text-white bg-amber-50 dark:bg-slate-800 px-1 sm:px-2 py-1 rounded-lg border-none outline-none focus:bg-amber-100 dark:focus:bg-slate-700" value={row.name}
             onChange={e => onUpdate(idx, 'name', e.target.value)} />
-          : <div className='py-2'>
-            <span className="text-slate-800 dark:text-slate-100 text-[15px] sm:text-[17px] font-bold leading-tight">{row.name}</span>
+          : <div className='py-1.5 sm:py-2'>
+            <span className="text-slate-800 dark:text-slate-100 text-[13px] sm:text-[15px] md:text-[16px] font-bold leading-tight block">{row.name}</span>
           </div>}
       </td>
 
       {/* Price per kg/L/pack */}
-      <td className={cell}>
+      <td className={cell} style={{ width: '10%' }}>
         {modifyMode
           ? <input
             type="text"
@@ -659,12 +672,13 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onEnableEdit, onUpd
             value={row.price !== undefined && row.price !== null ? row.price : ''}
             onChange={e => onUpdate(idx, 'price', e.target.value)}
           />
-          : <span className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-[12px] font-medium">₹{row.price}</span>}
+          : <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-[12px] font-medium">₹{row.price}</span>}
       </td>
 
-      {/* Morning input or Order Quantity / Packets */}
+      {/* Morning input or Order Quantity / Packets (Total Kg) */}
       <td 
-        className={`${cell} ${!editMode ? 'cursor-pointer hover:bg-yellow-50/70 dark:hover:bg-yellow-900/20' : ''}`}
+        className={`${cell} ${!editMode ? 'cursor-pointer hover:bg-yellow-50/70 dark:hover:bg-yellow-900/20' : ''} px-0.5 sm:px-1 py-1 sm:py-1.5`}
+        style={{ width: '18%' }}
         onClick={() => {
           if (!editMode && onEnableEdit) onEnableEdit()
         }}
@@ -674,48 +688,50 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onEnableEdit, onUpd
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            className="w-full bg-yellow-50 dark:bg-slate-800 border-none outline-none text-[18px] sm:text-lg md:text-xl font-bold text-center text-slate-900 dark:text-white rounded-lg py-2 px-4 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all"
+            className={`w-full min-w-0 bg-yellow-50 dark:bg-slate-800  outline-none font-extrabold text-center text-slate-900 dark:text-white rounded-lg py-1 sm:py-1.5 px-0.5 sm:px-1.5 focus:bg-yellow-100 dark:focus:bg-slate-700 select-all shadow-2xs transition-all ${inputFontCls}`}
             value={row.morn !== undefined && row.morn !== null ? row.morn : ''}
             placeholder="0"
             onChange={e => onUpdate(idx, 'morn', e.target.value)} />
-          : <span className="text-slate-800 dark:text-slate-100 text-[20px] sm:text-[20px] font-bold select-none">{row.morn || '-'}</span>}
+          : <span className={`inline-block text-slate-800 dark:text-slate-100 font-extrabold select-none ${displayFontCls}`}>{row.morn || '-'}</span>}
       </td>
 
       {/* Kg / L display  + warning */}
       <td 
-        className={`${cell} ${!editMode ? 'cursor-pointer hover:bg-blue-50/70 dark:hover:bg-blue-900/20' : ''}`}
+        className={`${cell} ${!editMode ? 'cursor-pointer hover:bg-blue-50/70 dark:hover:bg-blue-900/20' : ''} px-0.5 sm:px-1`}
+        style={{ width: '15%' }}
         onClick={() => {
           if (!editMode && onEnableEdit) onEnableEdit()
         }}
       >
-        <span className={`px-1 py-0.5 rounded font-bold text-[13px] sm:text-[14px] dark:bg-slate-700/80
-        ${isDahi
-            ? 'text-blue-900 dark:text-blue-200 leading-tight whitespace-pre-line'
-            : 'text-blue-900 dark:text-blue-200'
+        <div className="flex flex-col items-center justify-center">
+          <span className={`px-0.5 sm:px-1 py-0.5 rounded font-bold text-[11px] sm:text-[13px] md:text-[14px] dark:bg-slate-700/80 leading-tight ${
+            isDahi
+              ? 'text-blue-900 dark:text-blue-200 whitespace-pre-line'
+              : 'text-blue-900 dark:text-blue-200 whitespace-nowrap'
           }`}>
-          {kgLabel}
-        </span>
-        {dahiWarn && <span className="block text-[11px] text-orange-500 font-bold leading-tight">enter even</span>}
-
+            {kgLabel}
+          </span>
+          {dahiWarn && <span className="block text-[9px] sm:text-[10px] text-orange-500 font-bold leading-tight mt-0.5 whitespace-nowrap">enter even</span>}
+        </div>
       </td>
 
       {/* Net amount */}
-      <td className="border-b border-slate-100 dark:border-slate-700/50 px-2 py-1.5 text-center">
-        <span className="text-emerald-700 dark:text-emerald-400 text-[17px] sm:text-[19px] font-bold">{fmt(net)}</span>
+      <td className="border-b border-slate-100 dark:border-slate-700/50 px-1 sm:px-2 py-1 sm:py-1.5 text-center" style={{ width: '16%' }}>
+        <span className="text-emerald-700 dark:text-emerald-400 text-[13px] sm:text-[16px] md:text-[18px] font-bold block">{fmt(net)}</span>
       </td>
 
       {/* Discount — editable only in modifyMode, otherwise read-only */}
-      <td className={cell}>
+      <td className={`${cell} px-0.5 sm:px-1`} style={{ width: '11%' }}>
         {modifyMode
           ? <input
             type="text"
             inputMode="decimal"
             placeholder="0.0"
-            className={`${inp} focus:bg-orange-50 dark:focus:bg-orange-900/20 rounded border border-orange-200 dark:border-orange-800 w-14 font-bold`}
+            className={`${inp} focus:bg-orange-50 dark:focus:bg-orange-900/20 rounded border border-orange-200 dark:border-orange-800 w-full min-w-0 font-bold`}
             value={row.disc !== undefined && row.disc !== null ? row.disc : ''}
             onChange={e => onUpdate(idx, 'disc', e.target.value)}
           />
-          : <span className="text-orange-500 dark:text-orange-400 text-[13px] font-bold">
+          : <span className="text-orange-500 dark:text-orange-400 text-[10px] sm:text-[12px] md:text-[13px] font-bold block">
             {fmtN(row.disc)}
           </span>}
       </td>
@@ -1634,7 +1650,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
     const totals = calcTotals(rows)
     return (
       <div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto w-full">
           <table className="w-full text-xs">
             <THead showDel={modifyMode} onToggleEdit={() => setEditMode(v => !v)} />
             <tbody>
