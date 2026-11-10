@@ -29,15 +29,15 @@ export const SUDHA_BASE_PRODUCTS = [
 // Default Rates: Shakti 1 L: ₹59, Gold 1/2 L: ₹68, Shakti 1/2 L: ₹60, Cow 1/2 L: ₹56, Cow 1 L: ₹56, Gold 1 L: ₹67
 export const NAMASTE_INDIA_BASE_PRODUCTS = [
   // id         name                     price  calcMode  discAmt
-  { id: 'shak1',   name: 'Shakti 1 L',   price: 59, calcMode: 'kg',   discAmt: 2.3 },
-  { id: 'gold05',  name: 'Gold 1/2 L',   price: 67, calcMode: 'kg',   discAmt: 2.3 },
   { id: 'shak05',  name: 'Shakti 1/2 L', price: 60, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'shak1',   name: 'Shakti 1 L',   price: 59, calcMode: 'kg',   discAmt: 2.3 },
   { id: 'cow05',   name: 'Cow 1/2 L',    price: 56, calcMode: 'kg',   discAmt: 2.3 },
   { id: 'cow1',    name: 'Cow 1 L',      price: 56, calcMode: 'kg',   discAmt: 2.3 },
+  { id: 'gold05',  name: 'Gold 1/2 L',   price: 67, calcMode: 'kg',   discAmt: 2.3 },
   { id: 'gold1',   name: 'Gold 1 L',     price: 68, calcMode: 'kg',   discAmt: 2.3 },
 
-  // Dahi: user enters kg (even). 100g (₹10/pkt, ₹1.0 disc), 200g (₹20/pkt, ₹1.6 disc), 400g (₹35/pkt, ₹2.9 disc)
-  { id: 'dahi100', name: 'Dahi 100 g',   price: 10, calcMode: 'dahi', discAmt: 1.0 },
+  // Dahi: 10 Rs is entered as pieces; 200g/400g are entered as kg.
+  { id: 'dahi', name: 'Dahi 10 Rs',   price: 10, calcMode: 'pack', discAmt: 1.0 },
   { id: 'dahi200', name: 'Dahi 200 g',   price: 20, calcMode: 'dahi', discAmt: 1.6 },
   { id: 'dahi400', name: 'Dahi 400 g',   price: 35, calcMode: 'dahi', discAmt: 2.9 },
 
@@ -138,6 +138,7 @@ const sanitizeIntegerInput = (val) => {
 const mkRow = ({ id, name, price, calcMode, discAmt }) => {
   let disc = discAmt !== undefined ? discAmt : 2.30
   if (id === 'dahi100') disc = 1.0
+  if (id === 'dahi') disc = 1.0
   if (id === 'dahi200') disc = 1.6
   if (id === 'dahi400') disc = 2.9
   if (id === 'lassi10' || (name && String(name).toLowerCase().includes('lassi'))) disc = 1.1
@@ -198,6 +199,19 @@ export const calcRow = (r) => {
   const disc = parseFloat(r.disc) || 0
   const price = parseFloat(r.price) || 0
 
+  if (r.id === 'dahi') {
+    const gross = qty * price
+    const discAmt = qty * disc
+    return {
+      qty, packets: qty,
+      actualKg: 0,
+      gross, discAmt,
+      net: Math.max(0, gross - discAmt),
+      inputLabel: 'pkt',
+      kgLabel: `${fmtN(qty)} pkt`,
+    }
+  }
+
   if (r.id === 'dahi100') {
     // ── Dahi 100g ───────────────────────────────────────────────────────────
     // qty = kg entered by user (1 kg = 10 packs of 100g)
@@ -217,37 +231,67 @@ export const calcRow = (r) => {
 
   if (r.id === 'dahi200') {
     // ── Dahi 200g ───────────────────────────────────────────────────────────
-    // qty = kg entered by user (must be even: 2, 4, 6 …)
-    // packets = qty × 5   (200g packs per kg)
-    const packets = qty * 5
+    // Kg mode remains the default; packet mode supports any whole packet count.
+    const packetMode = r.qtyMode === 'pkt'
+    const packets = packetMode ? qty : qty * 5
     const gross = packets * price          // packets × ₹20
     const discAmt = disc * packets
 
     return {
       qty, packets,
-      actualKg: qty,                                  // kg for totals
+      actualKg: packetMode ? packets * 0.2 : qty,    // kg for totals
       gross, discAmt,
       net: Math.max(0, gross - discAmt),
-      inputLabel: 'kg',
-      kgLabel: `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
+      inputLabel: packetMode ? 'pkt' : 'kg',
+      kgLabel: packetMode ? `${fmtN(packets)} pkt` : `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
     }
   }
 
   if (r.id === 'dahi400') {
     // ── Dahi 400g ───────────────────────────────────────────────────────────
-    // qty = kg entered by user (must be even: 2, 4, 6 …)
-    // packets = qty × 2.5   (400g packs per kg)
-    const packets = qty * 2.5
+    // Kg mode remains the default; packet mode supports any whole packet count.
+    const packetMode = r.qtyMode === 'pkt'
+    const packets = packetMode ? qty : qty * 2.5
     const gross = packets * price          // packets × ₹35
     const discAmt = disc * packets
 
     return {
       qty, packets,
-      actualKg: qty,                                  // kg for totals
+      actualKg: packetMode ? packets * 0.4 : qty,    // kg for totals
       gross, discAmt,
       net: Math.max(0, gross - discAmt),
+      inputLabel: packetMode ? 'pkt' : 'kg',
+      kgLabel: packetMode ? `${fmtN(packets)} pkt` : `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
+    }
+  }
+
+  if (r.calcMode === 'dahi') {
+    const gross = qty * price
+    const discAmt = qty * disc
+    return {
+      qty,
+      packets: qty,
+      actualKg: qty,
+      gross,
+      discAmt,
+      net: Math.max(0, gross - discAmt),
       inputLabel: 'kg',
-      kgLabel: `${fmtN(qty)} kg\n(${fmtN(packets)} pkt)`,
+      kgLabel: `${fmtN(qty)} kg`,
+    }
+  }
+
+  if (r.calcMode === 'kilogram') {
+    const gross = qty * price
+    const discAmt = qty * disc
+    return {
+      qty,
+      packets: qty,
+      actualKg: qty,
+      gross,
+      discAmt,
+      net: Math.max(0, gross - discAmt),
+      inputLabel: 'kg',
+      kgLabel: `${fmtN(qty)} kg`,
     }
   }
 
@@ -319,7 +363,7 @@ export const calcTotals = rows =>
 
     const c = calcRow(r)
 
-    const isDahi = r.calcMode === 'dahi' || r.id === 'dahi100' || r.id === 'dahi200' || r.id === 'dahi400'
+    const isDahi = r.calcMode === 'dahi' || r.id === 'dahi' || r.id === 'dahi100' || r.id === 'dahi200' || r.id === 'dahi400'
     const isDrink = r.id === 'lassi10' || (r.name && String(r.name).toLowerCase().includes('lassi'))
     const isPaneer = r.id === 'paneer95' || (r.name && String(r.name).toLowerCase().includes('paneer'))
     return {
@@ -349,6 +393,7 @@ const sanitizeRows = (rows, tabKey = '') => {
     })
     .map(r => {
       if (r.id === 'dahi100' && (!r.disc || r.disc === 0)) return { ...r, disc: 1.0, price: r.price || 10 }
+      if (r.id === 'dahi') return { ...r, calcMode: 'pack', disc: r.disc || 1.0, price: r.price || 10 }
       if (r.id === 'dahi200' && (r.disc === 1.7 || !r.disc)) return { ...r, disc: 1.6, price: r.price || 20 }
       if (r.id === 'dahi400' && (r.disc === 2.865 || !r.disc)) return { ...r, disc: 2.9, price: r.price || 35 }
       if ((r.id === 'lassi10' || r.name?.toLowerCase().includes('lassi')) && (!r.disc || r.disc === 0)) {
@@ -390,6 +435,14 @@ const sanitizeRows = (rows, tabKey = '') => {
         filtered.push(mkRow(paneerDef))
       }
     }
+
+    const namasteOrder = ['shak05', 'shak1', 'cow05', 'cow1', 'gold05', 'gold1', 'dahi', 'dahi200', 'dahi400', 'lassi10', 'paneer95']
+    const orderIndex = new Map(namasteOrder.map((id, index) => [id, index]))
+    filtered.sort((a, b) => {
+      const aIndex = orderIndex.has(a.id) ? orderIndex.get(a.id) : namasteOrder.length
+      const bIndex = orderIndex.has(b.id) ? orderIndex.get(b.id) : namasteOrder.length
+      return aIndex - bIndex
+    })
   }
 
   return filtered.length > 0 ? filtered : defaultList.map(mkRow)
@@ -625,9 +678,9 @@ const THead = ({ showDel, onToggleEdit }) => (
 const ProductRow = ({ row, idx, total, modifyMode, editMode, onEnableEdit, onUpdate, onDelete, onMoveUp, onMoveDown }) => {
   const { qty, net, kgLabel } = calcRow(row)
 
-  const isDahi = row.id === 'dahi400' || row.id === 'dahi200' || row.id === 'dahi100'
+  const isDahi = row.calcMode === 'dahi' || row.id === 'dahi' || row.id === 'dahi400' || row.id === 'dahi200' || row.id === 'dahi100'
   // ── Dahi 400g: warn if odd kg entered (since 1 kg = 2.5 packs) ──
-  const dahiWarn = row.id === 'dahi400' && qty > 0 && qty % 2 !== 0
+  const dahiWarn = row.qtyMode !== 'pkt' && row.id === 'dahi400' && qty > 0 && qty % 2 !== 0
 
   const cell = 'border-b border-slate-100 dark:border-slate-700/50 border-r border-slate-100 dark:border-slate-700/50 px-1 py-1.5 text-center text-xs'
   const inp = 'w-full bg-transparent border-none outline-none text-xs text-center font-medium text-slate-800 dark:text-slate-100'
@@ -648,14 +701,31 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onEnableEdit, onUpd
     ? 'text-[16px] sm:text-lg'
     : 'text-[18px] sm:text-[20px]'
 
+  const unitOptions = [
+    { value: 'kg', label: 'L' },
+    { value: 'pack', label: 'Pkt' },
+    { value: 'kilogram', label: 'Kg' },
+    { value: 'dahi', label: 'Dahi' },
+  ]
+
   return (
     <tr className={`hover:bg-blue-50/20 dark:hover:bg-blue-900/10 transition-colors ${dahiWarn ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
 
       {/* Product name: Sticky on left for mobile phones */}
       <td className={`${cell} text-left px-1.5 sm:px-2 sticky left-0 z-10 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-[1px_0_0_0_#e2e8f0] dark:shadow-[1px_0_0_0_#334155] w-[27%] sm:w-[30%] min-w-[85px] sm:min-w-[110px]`}>
         {modifyMode
-          ? <input className="w-full text-[13px] sm:text-base font-bold text-slate-900 dark:text-white bg-amber-50 dark:bg-slate-800 px-1 sm:px-2 py-1 rounded-lg border-none outline-none focus:bg-amber-100 dark:focus:bg-slate-700" value={row.name}
-            onChange={e => onUpdate(idx, 'name', e.target.value)} />
+          ? <div className="space-y-1">
+            <input className="w-full text-[13px] sm:text-base font-bold text-slate-900 dark:text-white bg-amber-50 dark:bg-slate-800 px-1 sm:px-2 py-1 rounded-lg border-none outline-none focus:bg-amber-100 dark:focus:bg-slate-700" value={row.name}
+              onChange={e => onUpdate(idx, 'name', e.target.value)} />
+            <select
+              value={row.calcMode || 'kg'}
+              onChange={e => onUpdate(idx, 'calcMode', e.target.value)}
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 outline-none"
+              title="Choose the quantity unit"
+            >
+              {unitOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
           : <div className='py-1.5 sm:py-2'>
             <span className="text-slate-800 dark:text-slate-100 text-[13px] sm:text-[15px] md:text-[16px] font-bold leading-tight block">{row.name}</span>
           </div>}
@@ -711,6 +781,17 @@ const ProductRow = ({ row, idx, total, modifyMode, editMode, onEnableEdit, onUpd
           }`}>
             {kgLabel}
           </span>
+          {(row.id === 'dahi200' || row.id === 'dahi400') && (
+            <select
+              value={row.qtyMode || 'kg'}
+              onChange={e => onUpdate(idx, 'qtyMode', e.target.value)}
+              className="mt-0.5 rounded border border-blue-200 dark:border-blue-700 bg-white dark:bg-slate-800 px-1 text-[10px] font-bold text-blue-700 dark:text-blue-300 outline-none"
+              title="Choose whether quantity is entered in kilograms or packets"
+            >
+              <option value="kg">Kg</option>
+              <option value="pkt">Pkt</option>
+            </select>
+          )}
           {dahiWarn && <span className="block text-[9px] sm:text-[10px] text-orange-500 font-bold leading-tight mt-0.5 whitespace-nowrap">enter even</span>}
         </div>
       </td>
@@ -1648,6 +1729,7 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
 
   const renderTable = (rows, isExtra = false) => {
     const totals = calcTotals(rows)
+    const setRows = nextRows => upd(isExtra ? { extra: nextRows } : { rows: nextRows })
     return (
       <div>
         <div className="overflow-x-auto w-full">
@@ -1669,6 +1751,19 @@ const DairyOrderTable = ({ tabName, tabKey, onOpenFestivalAdvisor }) => {
                   onMoveDown={(i) => upd(isExtra ? { extra: moveRow(rows, i, 1) } : { rows: moveRow(rows, i, 1) })}
                 />
               ))}
+
+              {/* Add row (modifyMode only) */}
+              {modifyMode && (
+                <tr>
+                  <td colSpan={9} className="px-3 py-2">
+                    <button
+                      onClick={() => setRows([...rows, mkRow({ id: uid(), name: 'New product', price: 0, calcMode: 'kg' })])}
+                      className="text-xs text-slate-500 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 hover:border-slate-400 transition-colors"
+                    >+ Add row</button>
+                  </td>
+                </tr>
+              )}
+
             </tbody>
           </table>
         </div>
